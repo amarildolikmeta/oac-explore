@@ -30,9 +30,7 @@ def get_optimistic_exploration_action(ob_np, policy=None, qfs=None, hyper_params
     args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
     Q1 = qfs[0](*args)
     Q2 = qfs[1](*args)
-
     mu_Q = (Q1 + Q2) / 2.0
-
     sigma_Q = torch.abs(Q1 - Q2) / 2.0
 
     Q_UB = mu_Q + beta_UB * sigma_Q

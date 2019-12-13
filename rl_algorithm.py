@@ -117,7 +117,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                     optimistic_exploration=self.optimistic_exp_hp['should_use'],
                     optimistic_exploration_kwargs=dict(
                         policy=self.trainer.policy,
-                        qfs=[self.trainer.qf1, self.trainer.qf2],
+                        qfs=self.trainer.qfs,
                         hyper_params=self.optimistic_exp_hp
                     )
                 )

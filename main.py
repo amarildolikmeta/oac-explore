@@ -50,10 +50,10 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes):
     return policy_producer
 
 
-def get_q_producer(obs_dim, action_dim, hidden_sizes):
+def get_q_producer(obs_dim, action_dim, hidden_sizes, output_size=1):
     def q_producer():
         return FlattenMlp(input_size=obs_dim + action_dim,
-                          output_size=1,
+                          output_size=output_size,
                           hidden_sizes=hidden_sizes, )
 
     return q_producer
@@ -71,10 +71,17 @@ def experiment(variant, prev_exp_state=None):
 
     # Get producer function for policy and value functions
     M = variant['layer_size']
+    N = variant['num_layers']
+    n_estimators = variant['n_estimators']
 
-    q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M, M])
+    if variant.share_layers:
+        output_size = n_estimators
+        n_estimators = 1
+    else:
+        output_size = 1
+    q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
     policy_producer = get_policy_producer(
-        obs_dim, action_dim, hidden_sizes=[M, M])
+        obs_dim, action_dim, hidden_sizes=[M] * N)
     # Finished getting producer
 
     remote_eval_path_collector = RemoteMdpPathCollector.remote(
@@ -93,6 +100,7 @@ def experiment(variant, prev_exp_state=None):
     trainer = SACTrainer(
         policy_producer,
         q_producer,
+        n_estimators=n_estimators,
         action_space=expl_env.action_space,
         **variant['trainer_kwargs']
     )
@@ -140,6 +148,10 @@ def get_cmd_args():
     parser.add_argument('--domain', type=str, default='invertedpendulum')
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
+    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--layer_size', type=int, default=256)
+    parser.add_argument('--n_estimators', type=int, default=2)
+    parser.add_argument('--share_layers', action="store_true")
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -188,7 +200,6 @@ if __name__ == "__main__":
     variant = dict(
         algorithm="SAC",
         version="normal",
-        layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
             num_eval_steps_per_epoch=5000,
@@ -216,6 +227,10 @@ if __name__ == "__main__":
 
     variant['seed'] = args.seed
     variant['domain'] = args.domain
+    variant['num_layers'] = args.num_layers
+    variant['layer_size'] = args.layer_size
+    variant['share_layers'] = args.share_layers
+    variant['n_estimators'] = args.n_estimators
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
