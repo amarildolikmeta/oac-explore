@@ -125,30 +125,41 @@ class NormalizedBoxEnv(ProxyEnv):
 
 
 def domain_to_env(name):
-
-    from gym.envs.mujoco import HalfCheetahEnv, \
-        InvertedPendulumEnv, HumanoidEnv, \
-        HopperEnv, AntEnv, Walker2dEnv
-
-    return {
-        'invertedpendulum': InvertedPendulumEnv,
-        'humanoid': HumanoidEnv,
-        'halfcheetah': HalfCheetahEnv,
-        'hopper': HopperEnv,
-        'ant': AntEnv,
-        'walker2d': Walker2dEnv
-    }[name]
+    try:
+        from gym.envs.mujoco import HalfCheetahEnv, \
+            InvertedPendulumEnv, HumanoidEnv, \
+            HopperEnv, AntEnv, Walker2dEnv
+        from gym.envs.classic_control.cartpole import CartPoleEnv as Cartpole
+        from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
+        return {
+            'invertedpendulum': InvertedPendulumEnv,
+            'humanoid': HumanoidEnv,
+            'halfcheetah': HalfCheetahEnv,
+            'hopper': HopperEnv,
+            'ant': AntEnv,
+            'walker2d': Walker2dEnv,
+            'cartpole': Cartpole,
+            'mountain': MountainCar
+        }[name]
+    except:
+        from gym.envs.classic_control.cartpole import CartPoleEnv as Cartpole
+        from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
+        return {
+            'cartpole': Cartpole,
+            'mountain': MountainCar
+        }[name]
 
 
 def domain_to_epoch(name):
-
     return {
         'invertedpendulum': 300,
         'humanoid': 9000,
         'halfcheetah': 5000,
         'hopper': 2000,
         'ant': 5000,
-        'walker2d': 5000
+        'walker2d': 5000,
+        'cartpole': 300,
+        'mountain': 200
     }[name]
 
 

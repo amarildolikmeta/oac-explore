@@ -123,7 +123,7 @@ def plot(values, label, color=[0, 0, 1, 1]):
 
 
 # DOMAINS = ['humanoid', 'halfcheetah', 'hopper', 'ant', 'walker2d']
-DOMAINS = ['humanoid']
+DOMAINS = ['mountain']
 
 RLKIT_BASE_LOG_DIR_BASELINE = RLKIT_BASE_LOG_DIR_ALGO = './data'
 

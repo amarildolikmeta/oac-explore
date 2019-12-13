@@ -145,7 +145,7 @@ def get_cmd_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
-    parser.add_argument('--domain', type=str, default='invertedpendulum')
+    parser.add_argument('--domain', type=str, default='mountain')
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--num_layers', type=int, default=2)
@@ -169,25 +169,26 @@ def get_cmd_args():
 
 def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True, should_include_domain=True):
 
-    log_dir = osp.join(
-        get_current_branch('./'),
-
-        # Algo kwargs portion
-        'num_expl_steps_per_train_loop_' + str(args.num_expl_steps_per_train_loop) + '_num_trains_per_train_loop_' +
-        str(args.num_trains_per_train_loop),
-
-        # optimistic exploration dependent portion
-       ' beta_UB_' + str(args.beta_UB) + '_delta_' + str(args.delta),
-    )
-
-    if should_include_domain:
-        log_dir = osp.join(log_dir, args.domain)
-
-    if should_include_seed:
-        log_dir = osp.join(log_dir, 'seed_' + str(args.seed))
-
-    if should_include_base_log_dir:
-        log_dir = osp.join(args.base_log_dir, log_dir)
+    log_dir = '../data/master/num_expl_steps_per_train_loop_1000_num_trains_per_train_loop_1000/ beta_UB_4.66_delta_23.53/mountain/seed_0'
+    # # #       ''osp.join(
+    # # # get_current_branch('./'),
+    # #
+    # #     # Algo kwargs portion
+    # #     'num_expl_steps_per_train_loop_' + str(args.num_expl_steps_per_train_loop) + '_num_trains_per_train_loop_' +
+    # #     str(args.num_trains_per_train_loop),
+    # #
+    # #     # optimistic exploration dependent portion
+    # #    ' beta_UB_' + str(args.beta_UB) + '_delta_' + str(args.delta),
+    # # )
+    # #
+    # # if should_include_domain:
+    # #     log_dir = osp.join(log_dir, args.domain)
+    # #
+    # # if should_include_seed:
+    # #     log_dir = osp.join(log_dir, 'seed_' + str(args.seed))
+    # #
+    # # if should_include_base_log_dir:
+    #     log_dir = osp.join(args.base_log_dir, log_dir)
 
     return log_dir
 

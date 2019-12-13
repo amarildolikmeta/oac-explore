@@ -245,10 +245,10 @@ class SACTrainer(object):
         qfs_state_dicts = []
         qfs_optims_state_dicts = []
         target_qfs_state_dicts = []
-        for i in range(self.qfs):
-            qfs_state_dicts[i] = self.qfs[i].state_dict(),
-            qfs_optims_state_dicts[i] = self.qf_optimizers[i].state_dict(),
-            target_qfs_state_dicts[i] = self.tfs[i].state_dict(),
+        for i in range(len(self.qfs)):
+            qfs_state_dicts.append(self.qfs[i].state_dict())
+            qfs_optims_state_dicts.append(self.qf_optimizers[i].state_dict())
+            target_qfs_state_dicts.append(self.tfs[i].state_dict())
 
         data["qfs_state_dicts"] = qfs_state_dicts
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
@@ -263,9 +263,9 @@ def restore_from_snapshot(self, ss):
         self.policy.load_state_dict(policy_state_dict)
         self.policy_optimizer.load_state_dict(policy_optim_state_dict)
 
-        self.qfs_optimizer = []
-        self.qfs = []
-        self.tfs = []
+        # self.qfs_optimizer = []
+        # self.qfs = []
+        # self.tfs = []
         qfs_state_dicts, qfs_optims_state_dicts = ss['qfs_state_dicts'], ss['qfs_optims_state_dicts']
         target_qfs_state_dicts = ss['target_qfs_state_dicts']
         for i in range(len(qfs_state_dicts)):
