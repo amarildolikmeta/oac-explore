@@ -122,7 +122,7 @@ class SACTrainer(object):
         # )
         delta = self.get_delta()
         qs = torch.stack(qs, dim=0)
-        q_new_actions = torch.min(qs, dim=0)
+        q_new_actions = torch.min(qs, dim=0)[0]
         ##upper_bound (in some way)
         policy_loss = (alpha * log_pi - q_new_actions).mean()
 
@@ -141,7 +141,7 @@ class SACTrainer(object):
         )
         target_qs = [next_obs(obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
-        target_q_values = torch.min(target_qs, dim=0) - alpha * new_log_pi
+        target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
 
         q_target = self.reward_scale * rewards + \
             (1. - terminals) * self.discount * target_q_values
