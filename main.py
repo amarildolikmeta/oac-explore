@@ -74,7 +74,7 @@ def experiment(variant, prev_exp_state=None):
     N = variant['num_layers']
     n_estimators = variant['n_estimators']
 
-    if variant.share_layers:
+    if variant['share_layers']:
         output_size = n_estimators
         n_estimators = 1
     else:
