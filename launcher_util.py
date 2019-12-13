@@ -132,15 +132,15 @@ def run_experiment_here(
         # of the saved data and the current experiment run is the same
         prev_exp_setting = load_pkl(exp_setting_pkl_path)
 
-        logger.log(f'Log dir is not empty: {os.listdir(log_dir)}')
+        logger.log('Log dir is not empty: ' + str(os.listdir(log_dir)))
 
         if prev_exp_setting != exp_setting:
             logger.log("""Previous experimental setting is not
                         the same as the current experimental setting.
                         Very risky to try to reload the previous state.
                         Exitting""")
-            logger.log(f'Previous: {prev_exp_setting}')
-            logger.log(f'Current: {exp_setting}')
+            logger.log('Previous: ' + str(prev_exp_setting))
+            logger.log('Current: ' + str(exp_setting))
             exit(1)
 
         try:
@@ -165,10 +165,10 @@ def run_experiment_here(
     dump_pkl(exp_setting_pkl_path, exp_setting)
     log_git_infos(git_infos, log_dir)
 
-    logger.log(f'Seed: {seed}')
+    logger.log('Seed: ' + str(seed))
     set_seed(seed)
 
-    logger.log(f'Using GPU: {use_gpu}')
+    logger.log('Using GPU: ' + str(use_gpu))
     set_gpu_mode(use_gpu, gpu_id)
 
     return experiment_function(variant, prev_exp_state)
@@ -218,7 +218,7 @@ def setup_logger(
     logger.set_snapshot_gap(snapshot_gap)
     logger.set_log_tabular_only(log_tabular_only)
 
-    logger.log(f'Logging to: {log_dir}')
+    logger.log('Logging to: ' + str(log_dir))
 
 
 def dict_to_safe_json(d):

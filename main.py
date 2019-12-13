@@ -173,17 +173,18 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
         get_current_branch('./'),
 
         # Algo kwargs portion
-        f'num_expl_steps_per_train_loop_{args.num_expl_steps_per_train_loop}_num_trains_per_train_loop_{args.num_trains_per_train_loop}'
+        'num_expl_steps_per_train_loop_' + str(args.num_expl_steps_per_train_loop) + '_num_trains_per_train_loop_' +
+        str(args.num_trains_per_train_loop),
 
         # optimistic exploration dependent portion
-        f'beta_UB_{args.beta_UB}_delta_{args.delta}',
+       ' beta_UB_' + str(args.beta_UB) + '_delta_' + str(args.delta),
     )
 
     if should_include_domain:
         log_dir = osp.join(log_dir, args.domain)
 
     if should_include_seed:
-        log_dir = osp.join(log_dir, f'seed_{args.seed}')
+        log_dir = osp.join(log_dir, 'seed_' + str(args.seed))
 
     if should_include_base_log_dir:
         log_dir = osp.join(args.base_log_dir, log_dir)

@@ -151,7 +151,7 @@ print('FORMAL_FIG', FORMAL_FIG)
 def sac_get_one_domain_one_run_res(path, domain, seed):
 
     csv_path = osp.join(
-        path, domain, f'seed_{seed}', 'progress.csv'
+        path, domain, 'seed_' + str(seed), 'progress.csv'
     )
 
     result = pd.read_csv(csv_path, usecols=[
@@ -199,11 +199,11 @@ def get_plot_title(args):
 
         title = '\n'.join([
             args.env,
-            f'num_run: {NUM_RUN}', '---'
+            'num_run: ' + str(NUM_RUN), '---'
 
-            f'beta_UB: {args.beta_UB}',
-            f'delta: {args.delta}',
-            f'train/env step ratio: {int(args.num_trains_per_train_loop / args.num_expl_steps_per_train_loop)}'
+            'beta_UB: ' + str(args.beta_UB),
+            'delta: ' + str(args.delta),
+            'train/env step ratio: ' + str(int(args.num_trains_per_train_loop / args.num_expl_steps_per_train_loop))
         ])
 
     return title
@@ -257,7 +257,7 @@ for hyper_params in all_hyper_params_dict:
 
         set_attr_with_dict(args, hyper_params)
 
-        args.env = f'{domain}-v2'
+        args.env = str(domain) + '-v2'
 
         relative_log_dir = get_log_dir(
             args, should_include_base_log_dir=False, should_include_seed=False, should_include_domain=False)
@@ -319,7 +319,7 @@ for hyper_params in all_hyper_params_dict:
         else:
 
             fig_path = osp.join(
-                graph_base_path, f'{args.env}_formal_fig_{FORMAL_FIG}.png')
+                graph_base_path, str(args.env) + '_formal_fig_' + str(FORMAL_FIG) + '.png')
 
             plt.savefig(fig_path, bbox_inches='tight')
 
