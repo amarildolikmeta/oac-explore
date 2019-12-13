@@ -139,7 +139,7 @@ class SACTrainer(object):
         new_next_actions, _, _, new_log_pi, *_ = self.policy(
             next_obs, reparameterize=True, return_log_prob=True,
         )
-        target_qs = [next_obs(obs, new_next_actions) for q in self.tfs]
+        target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
         target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
 
