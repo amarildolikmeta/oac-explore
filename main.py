@@ -111,14 +111,14 @@ def experiment(variant, prev_exp_state=None):
         ob_space=expl_env.observation_space,
         action_space=expl_env.action_space
     )
-    if variant['alg'] == 'oac':
+    if variant['alg'] in ['oac', 'sac']:
         trainer = SACTrainer(
             policy_producer,
             q_producer,
             action_space=expl_env.action_space,
             **variant['trainer_kwargs']
         )
-    else:
+    elif variant['alg'] == 'w-oac':
         q_min = 0
         q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
         trainer = OptTrainer(
@@ -131,6 +131,21 @@ def experiment(variant, prev_exp_state=None):
             action_space=expl_env.action_space,
             **variant['trainer_kwargs']
         )
+    elif variant['alg'] == 'g-oac':
+        q_min = 0
+        q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
+        trainer = OptTrainer(
+            policy_producer,
+            q_producer,
+            n_estimators=n_estimators,
+            delta=variant['delta'],
+            q_min=q_min,
+            q_max=q_max,
+            action_space=expl_env.action_space,
+            **variant['trainer_kwargs']
+        )
+    else:
+        raise ValueError("Algorithm no implemented:" + variant['alg'])
 
     algorithm = BatchRLAlgorithm(
         trainer=trainer,
@@ -172,7 +187,7 @@ def get_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
-    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'w-oac'])
+    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'w-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--num_layers', type=int, default=2)
@@ -233,14 +248,14 @@ if __name__ == "__main__":
         algorithm="SAC",
         version="normal",
         layer_size=256,
-        replay_buffer_size=int(1E6),
+        replay_buffer_size=int(1E4),
         algorithm_kwargs=dict(
             num_eval_steps_per_epoch=5000,
             num_trains_per_train_loop=None,
             num_expl_steps_per_train_loop=None,
-            min_num_steps_before_training=10000,
-            max_path_length=1000,
-            batch_size=256,
+            min_num_steps_before_training=1000,
+            max_path_length=100,
+            batch_size=32,
         ),
         trainer_kwargs=dict(
             discount=0.99,
@@ -269,9 +284,10 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
     variant['delta'] = args.delta
-    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg =='w-oac'
-    variant['optimistic_exp']['beta_UB'] = args.beta_UB
-    variant['optimistic_exp']['delta'] = args.delta
+    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['w-oac', 'sac',
+                                                                                                      'g-oac']
+    variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
+    variant['optimistic_exp']['delta'] = args.delta if args.alg in ['w-oac', 'oac', 'g-oac'] else 0
     variant['alg'] = args.alg
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())

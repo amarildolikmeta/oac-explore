@@ -77,9 +77,15 @@ if __name__ == '__main__':
     mdp = RiverSwimContinuous()
 
     s = mdp.reset()
-    while True:
-        #print(s)
-        a = np.random.rand() * 2 - 1
-        s, r, _, _ = mdp.step(a)
-        if s >= 5:
-            print(r)
+    rets = []
+    for i in range(100):
+        t = 0
+        ret = 0
+        while t < 1000:
+            #print(s)
+            a = 1
+            s, r, _, _ = mdp.step(a)
+            ret += r
+            t+=1
+        rets.append(ret)
+    print("Average Return:", np.mean(rets))
