@@ -34,6 +34,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
             optimistic_exp_hp=None,
+            deterministic=False
     ):
         super().__init__()
 
@@ -49,7 +50,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.optimistic_exp_hp = optimistic_exp_hp
-
+        self.deterministic = deterministic
         """
         The class mutable state
         """
@@ -122,7 +123,6 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                     )
                 )
                 gt.stamp('exploration sampling', unique=False)
-
                 self.replay_buffer.add_paths(new_expl_paths)
                 gt.stamp('data storing', unique=False)
 
@@ -133,7 +133,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 gt.stamp('training', unique=False)
 
             # Wait for eval to finish
-            ray.wait([remote_eval_obj_id])
+            ray.get([remote_eval_obj_id])
             gt.stamp('remote evaluation wait')
 
             self._end_epoch(epoch)
@@ -142,7 +142,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self._log_stats(epoch)
 
         self.expl_data_collector.end_epoch(epoch)
-        ray.wait([self.remote_eval_data_collector.end_epoch.remote(epoch)])
+        ray.get([self.remote_eval_data_collector.end_epoch.remote(epoch)])
 
         self.replay_buffer.end_epoch(epoch)
         self.trainer.end_epoch(epoch)

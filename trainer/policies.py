@@ -4,8 +4,6 @@ from torch import nn as nn
 
 from utils.core import eval_np
 from networks import Mlp
-
-
 import torch
 from torch.distributions import Distribution, Normal
 import utils.pytorch_util as ptu
@@ -207,13 +205,30 @@ class MakeDeterministic(object):
     def __init__(self, stochastic_policy):
         self.stochastic_policy = stochastic_policy
 
-    def get_action(self, observation):
+    def get_action(self, observation, deterministic=True):
         return self.stochastic_policy.get_action(observation,
                                                  deterministic=True)
+
+    def get_actions(self, obs_np, deterministic=True):
+        return self.stochastic_policy.get_actions(obs_np, deterministic=True)
 
     def reset(self):
         pass
 
+    def forward(self, obs, reparameterize=True, deterministic=False, return_log_prob=False,):
+        return self.stochastic_policy.forward(obs, reparameterize=reparameterize, deterministic=True,
+                                              return_log_prob=return_log_prob)
+    def load_state_dict(self, **args):
+        return self.stochastic_policy.load_state_dict(**args)
+
+    def load_state_dict(self, **args):
+        return self.stochastic_policy.load_state_dict(**args)
+
+    def state_dict(self, **args):
+        return self.stochastic_policy.state_dict(**args)
+
+    def to(self, **args):
+        return self.stochastic_policy.to(**args)
 
 def policy_producer(obs_dim, action_dim, hidden_sizes, deterministic=False):
 

@@ -127,33 +127,33 @@ def run_experiment_here(
     # Check if existing result exists
     prev_exp_state = None
 
-    if osp.isfile(exp_setting_pkl_path):
-        # Sanity check to make sure the experimental setting
-        # of the saved data and the current experiment run is the same
-        prev_exp_setting = load_pkl(exp_setting_pkl_path)
-
-        logger.log('Log dir is not empty: ' + str(os.listdir(log_dir)))
-
-        if prev_exp_setting != exp_setting:
-            logger.log("""Previous experimental setting is not
-                        the same as the current experimental setting.
-                        Very risky to try to reload the previous state.
-                        Exitting""")
-            logger.log('Previous: ' + str(prev_exp_setting))
-            logger.log('Current: ' + str(exp_setting))
-            exit(1)
-
-        try:
-            prev_exp_state = load_gzip_pickle(
-                osp.join(log_dir, 'params.zip_pkl'))
-
-            logger.log('Trying to restore the state of the experiment program')
-
-        except FileNotFoundError:
-            logger.log("""There is no previous experiment state available.
-                            Do not try to restore.""")
-
-            prev_exp_state = None
+    # if osp.isfile(exp_setting_pkl_path):
+    #     # Sanity check to make sure the experimental setting
+    #     # of the saved data and the current experiment run is the same
+    #     prev_exp_setting = load_pkl(exp_setting_pkl_path)
+    #
+    #     logger.log('Log dir is not empty: ' + str(os.listdir(log_dir)))
+    #
+    #     if prev_exp_setting != exp_setting:
+    #         logger.log("""Previous experimental setting is not
+    #                     the same as the current experimental setting.
+    #                     Very risky to try to reload the previous state.
+    #                     Exitting""")
+    #         logger.log('Previous: ' + str(prev_exp_setting))
+    #         logger.log('Current: ' + str(exp_setting))
+    #         exit(1)
+    #
+    #     try:
+    #         prev_exp_state = load_gzip_pickle(
+    #             osp.join(log_dir, 'params.zip_pkl'))
+    #
+    #         logger.log('Trying to restore the state of the experiment program')
+    #
+    #     except FileNotFoundError:
+    #         logger.log("""There is no previous experiment state available.
+    #                         Do not try to restore.""")
+    #
+    #         prev_exp_state = None
 
     # Log the variant
     logger.log("Variant:")

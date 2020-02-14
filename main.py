@@ -1,9 +1,8 @@
 import os
 import os.path as osp
-
 import argparse
 import torch
-
+import time
 import utils.pytorch_util as ptu
 from replay_buffer import ReplayBuffer
 from utils.env_utils import NormalizedBoxEnv, domain_to_epoch, env_producer
@@ -12,6 +11,7 @@ from launcher_util import run_experiment_here
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
 from trainer.policies import TanhGaussianPolicy, MakeDeterministic
 from trainer.trainer import SACTrainer
+from trainer.opt_trainer import OptTrainer
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 
@@ -20,7 +20,11 @@ import logging
 ray.init(
     # If true, then output from all of the worker processes on all nodes will be directed to the driver.
     log_to_driver=True,
-    logging_level=logging.WARNING
+    logging_level=logging.WARNING,
+
+    # # The amount of memory (in bytes)
+    # object_store_memory=1073741824, # 1g
+    # redis_max_memory=1073741824 # 1g
 )
 
 
@@ -51,10 +55,11 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes):
 
 
 def get_q_producer(obs_dim, action_dim, hidden_sizes, output_size=1):
-    def q_producer():
+    def q_producer(bias=0.1):
         return FlattenMlp(input_size=obs_dim + action_dim,
                           output_size=output_size,
-                          hidden_sizes=hidden_sizes, )
+                          hidden_sizes=hidden_sizes,
+                          b_init_value=bias)
 
     return q_producer
 
@@ -84,6 +89,11 @@ def experiment(variant, prev_exp_state=None):
         obs_dim, action_dim, hidden_sizes=[M] * N)
     # Finished getting producer
 
+    # remote_eval_path_collector = MdpPathCollector(
+    #     domain, seed * 10 + 1,
+    #     policy_producer
+    # )
+
     remote_eval_path_collector = RemoteMdpPathCollector.remote(
         domain, seed * 10 + 1,
         policy_producer
@@ -97,43 +107,55 @@ def experiment(variant, prev_exp_state=None):
         ob_space=expl_env.observation_space,
         action_space=expl_env.action_space
     )
-    trainer = SACTrainer(
-        policy_producer,
-        q_producer,
-        n_estimators=n_estimators,
-        action_space=expl_env.action_space,
-        **variant['trainer_kwargs']
-    )
+    if variant['alg'] == 'oac':
+        trainer = SACTrainer(
+            policy_producer,
+            q_producer,
+            action_space=expl_env.action_space,
+            **variant['trainer_kwargs']
+        )
+    else:
+        q_min = 0
+        q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
+        trainer = OptTrainer(
+            policy_producer,
+            q_producer,
+            n_estimators=n_estimators,
+            delta=variant['delta'],
+            q_min=q_min,
+            q_max=q_max,
+            action_space=expl_env.action_space,
+            **variant['trainer_kwargs']
+        )
 
     algorithm = BatchRLAlgorithm(
         trainer=trainer,
-
         exploration_data_collector=expl_path_collector,
         remote_eval_data_collector=remote_eval_path_collector,
-
         replay_buffer=replay_buffer,
         optimistic_exp_hp=variant['optimistic_exp'],
+        deterministic=variant['alg'] == 'w-oac',
         **variant['algorithm_kwargs']
     )
 
     algorithm.to(ptu.device)
 
-    if prev_exp_state is not None:
-
-        expl_path_collector.restore_from_snapshot(
-            prev_exp_state['exploration'])
-
-        ray.wait([remote_eval_path_collector.restore_from_snapshot.remote(
-            prev_exp_state['evaluation_remote'])])
-        ray.wait([remote_eval_path_collector.set_global_pkg_rng_state.remote(
-            prev_exp_state['evaluation_remote_rng_state']
-        )])
-
-        replay_buffer.restore_from_snapshot(prev_exp_state['replay_buffer'])
-
-        trainer.restore_from_snapshot(prev_exp_state['trainer'])
-
-        set_global_pkg_rng_state(prev_exp_state['global_pkg_rng_state'])
+    # if prev_exp_state is not None:
+    #
+    #     expl_path_collector.restore_from_snapshot(
+    #         prev_exp_state['exploration'])
+    #
+    #     ray.wait([remote_eval_path_collector.restore_from_snapshot.remote(
+    #         prev_exp_state['evaluation_remote'])])
+    #     ray.wait([remote_eval_path_collector.set_global_pkg_rng_state.remote(
+    #         prev_exp_state['evaluation_remote_rng_state']
+    #     )])
+    #
+    #     replay_buffer.restore_from_snapshot(prev_exp_state['replay_buffer'])
+    #
+    #     trainer.restore_from_snapshot(prev_exp_state['trainer'])
+    #
+    #     set_global_pkg_rng_state(prev_exp_state['global_pkg_rng_state'])
 
     start_epoch = prev_exp_state['epoch'] + \
         1 if prev_exp_state is not None else 0
@@ -146,16 +168,18 @@ def get_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
+    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'w-oac'])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--layer_size', type=int, default=256)
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
+    parser.add_argument('--log_dir', type=str, default='./data/')
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
-    parser.add_argument('--delta', type=float, default=0.0)
+    parser.add_argument('--delta', type=float, default=0.95)
 
     # Training param
     parser.add_argument('--num_expl_steps_per_train_loop',
@@ -170,6 +194,8 @@ def get_cmd_args():
 def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True, should_include_domain=True):
 
     log_dir = '../data/master/num_expl_steps_per_train_loop_1000_num_trains_per_train_loop_1000/ beta_UB_4.66_delta_23.53/mountain/seed_0'
+    start_time = time.time()
+    log_dir = args.log_dir + args.domain + '/' + args.alg + '/' + str(start_time) + '/'
     # # #       ''osp.join(
     # # # get_current_branch('./'),
     # #
@@ -202,6 +228,7 @@ if __name__ == "__main__":
     variant = dict(
         algorithm="SAC",
         version="normal",
+        layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
             num_eval_steps_per_epoch=5000,
@@ -232,16 +259,16 @@ if __name__ == "__main__":
     variant['num_layers'] = args.num_layers
     variant['layer_size'] = args.layer_size
     variant['share_layers'] = args.share_layers
-    variant['n_estimators'] = args.n_estimators
+    variant['n_estimators'] = args.n_estimators if args.alg == 'w-oac' else 2
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
-
-    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0
+    variant['delta'] = args.delta
+    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg =='w-oac'
     variant['optimistic_exp']['beta_UB'] = args.beta_UB
     variant['optimistic_exp']['delta'] = args.delta
-
+    variant['alg'] = args.alg
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:

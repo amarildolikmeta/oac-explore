@@ -38,7 +38,8 @@ class MdpPathCollector(object):
             num_steps,
             discard_incomplete_paths,
             optimistic_exploration=False,
-            optimistic_exploration_kwargs={}
+            optimistic_exploration_kwargs={},
+            deterministic_pol=False,
     ):
         paths = []
         num_steps_collected = 0
@@ -52,6 +53,7 @@ class MdpPathCollector(object):
                 policy,
                 max_path_length=max_path_length_this_loop,
                 optimistic_exploration=optimistic_exploration,
+                deterministic_pol=deterministic_pol,
                 optimistic_exploration_kwargs=optimistic_exploration_kwargs
             )
             path_len = len(path['actions'])
@@ -173,6 +175,7 @@ def rollout(
         render_kwargs=None,
         optimistic_exploration=False,
         optimistic_exploration_kwargs={},
+        deterministic_pol=False,
 ):
     """
     The following value for the following keys will be a 2D array, with the
@@ -205,7 +208,7 @@ def rollout(
     while path_length < max_path_length:
 
         if not optimistic_exploration:
-            a, agent_info = agent.get_action(o)
+            a, agent_info = agent.get_action(o, deterministic=deterministic_pol)
         else:
             a, agent_info = get_optimistic_exploration_action(
                 o, **optimistic_exploration_kwargs)
