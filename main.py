@@ -14,7 +14,7 @@ from trainer.trainer import SACTrainer
 from trainer.opt_trainer import OptTrainer
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
-
+import numpy as np
 import ray
 import logging
 ray.init(
@@ -68,7 +68,11 @@ def experiment(variant, prev_exp_state=None):
 
     domain = variant['domain']
     seed = variant['seed']
-
+    if seed == 0:
+        np.random.seed()
+        seed = np.random.randint(0, 1000000)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     expl_env = env_producer(domain, seed)
 
     obs_dim = expl_env.observation_space.low.size
