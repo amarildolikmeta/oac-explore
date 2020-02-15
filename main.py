@@ -17,15 +17,15 @@ from rl_algorithm import BatchRLAlgorithm
 import numpy as np
 import ray
 import logging
-ray.init(
-    # If true, then output from all of the worker processes on all nodes will be directed to the driver.
-    log_to_driver=True,
-    logging_level=logging.WARNING,
-
-    # # The amount of memory (in bytes)
-    # object_store_memory=1073741824, # 1g
-    # redis_max_memory=1073741824 # 1g
-)
+# ray.init(
+#     # If true, then output from all of the worker processes on all nodes will be directed to the driver.
+#     log_to_driver=True,
+#     logging_level=logging.WARNING,
+#
+#     # # The amount of memory (in bytes)
+#     # object_store_memory=1073741824, # 1g
+#     # redis_max_memory=1073741824 # 1g
+# )
 
 
 def get_current_branch(dir):
@@ -74,7 +74,7 @@ def experiment(variant, prev_exp_state=None):
     torch.manual_seed(seed)
     np.random.seed(seed)
     expl_env = env_producer(domain, seed)
-
+    eval_env = env_producer(domain, seed * 10 + 1)
     obs_dim = expl_env.observation_space.low.size
     action_dim = expl_env.action_space.low.size
 
@@ -93,15 +93,14 @@ def experiment(variant, prev_exp_state=None):
         obs_dim, action_dim, hidden_sizes=[M] * N)
     # Finished getting producer
 
-    # remote_eval_path_collector = MdpPathCollector(
+    remote_eval_path_collector = MdpPathCollector(
+        eval_env
+    )
+
+    # remote_eval_path_collector = RemoteMdpPathCollector.remote(
     #     domain, seed * 10 + 1,
     #     policy_producer
     # )
-
-    remote_eval_path_collector = RemoteMdpPathCollector.remote(
-        domain, seed * 10 + 1,
-        policy_producer
-    )
 
     expl_path_collector = MdpPathCollector(
         expl_env,

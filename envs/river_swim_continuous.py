@@ -5,7 +5,7 @@ import numpy as np
 
 
 class RiverSwimContinuous(gym.Env):
-    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=np.inf):
+    def __init__(self, dim=6, gamma=0.99, small=5, large=10000, horizon=np.inf):
         self.horizon = horizon
         self.small = small
         self.large = large

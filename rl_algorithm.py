@@ -96,17 +96,21 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             # we're shipping the policy params to the remote evaluator
             # This can be made more efficient
             # But this is currently extremely cheap due to small network size
-            pol_state_dict = ptu.state_dict_cpu(self.trainer.policy)
+            #pol_state_dict = ptu.state_dict_cpu(self.trainer.policy)
 
-            remote_eval_obj_id = self.remote_eval_data_collector.async_collect_new_paths.remote(
+            # remote_eval_obj_id = self.remote_eval_data_collector.async_collect_new_paths.remote(
+            #     self.max_path_length,
+            #     self.num_eval_steps_per_epoch,
+            #     discard_incomplete_paths=True,
+            #     deterministic_pol=True,
+            #     pol_state_dict=pol_state_dict)
+            eval_exploration_paths = self.remote_eval_data_collector.collect_new_paths(
+                self.trainer.policy,
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
-
-                deterministic_pol=True,
-                pol_state_dict=pol_state_dict)
-
-            gt.stamp('remote evaluation submit')
+                deterministic_pol=True
+            )
 
             for _ in range(self.num_train_loops_per_epoch):
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
@@ -133,8 +137,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 gt.stamp('training', unique=False)
 
             # Wait for eval to finish
-            ray.get([remote_eval_obj_id])
-            gt.stamp('remote evaluation wait')
+            #ray.get([remote_eval_obj_id])
+            #gt.stamp('remote evaluation wait')
 
             self._end_epoch(epoch)
 
@@ -142,8 +146,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self._log_stats(epoch)
 
         self.expl_data_collector.end_epoch(epoch)
-        ray.get([self.remote_eval_data_collector.end_epoch.remote(epoch)])
-
+        #ray.get([self.remote_eval_data_collector.end_epoch(epoch)])
+        self.remote_eval_data_collector.end_epoch(epoch)
         self.replay_buffer.end_epoch(epoch)
         self.trainer.end_epoch(epoch)
 
@@ -154,7 +158,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         if epoch > 0:
             snapshot = self._get_snapshot(epoch)
             logger.save_itr_params(epoch, snapshot)
-            gt.stamp('saving')
+            #gt.stamp('saving')
 
         logger.record_dict(_get_epoch_timings())
         logger.record_tabular('Epoch', epoch)
@@ -167,11 +171,10 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         snapshot = dict(
             trainer=self.trainer.get_snapshot(),
             exploration=self.expl_data_collector.get_snapshot(),
-            evaluation_remote=ray.get(
-                self.remote_eval_data_collector.get_snapshot.remote()),
-            evaluation_remote_rng_state=ray.get(
-                self.remote_eval_data_collector.get_global_pkg_rng_state.remote()
-            ),
+            evaluation_remote=self.remote_eval_data_collector.get_snapshot(),
+            # evaluation_remote_rng_state=ray.get(
+            #     self.remote_eval_data_collector.get_global_pkg_rng_state.remote()
+            # ),
             replay_buffer=self.replay_buffer.get_snapshot()
         )
 
@@ -216,12 +219,10 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         """
         Remote Evaluation
         """
-        logger.record_dict(
-            ray.get(self.remote_eval_data_collector.get_diagnostics.remote()),
+        logger.record_dict(self.remote_eval_data_collector.get_diagnostics(),
             prefix='remote_evaluation/',
         )
-        remote_eval_paths = ray.get(
-            self.remote_eval_data_collector.get_epoch_paths.remote())
+        remote_eval_paths = self.remote_eval_data_collector.get_epoch_paths()
         logger.record_dict(
             eval_util.get_generic_path_information(remote_eval_paths),
             prefix="remote_evaluation/",

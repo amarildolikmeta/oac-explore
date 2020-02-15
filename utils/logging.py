@@ -91,6 +91,7 @@ class Logger(object):
         self._log_tabular_only = False
         self._header_printed = False
         self.table_printer = TerminalTablePrinter()
+        self.prev_dict = None
 
     def reset(self):
         self.__init__()
@@ -265,6 +266,12 @@ class Logger(object):
             tabular_dict = dict(self._tabular)
             # Also write to the csv files
             # This assumes that the keys in each iteration won't change!
+            # if self.prev_dict is not None:
+            #     old_keys = self.prev_dict.keys()
+            #     new_keys = tabular_dict.keys()
+            #     difference = set(old_keys) ^ set(new_keys)
+            #     print(difference)
+            # self.prev_dict = tabular_dict
             for tabular_fd in list(self._tabular_fds.values()):
                 writer = csv.DictWriter(tabular_fd,
                                         fieldnames=list(tabular_dict.keys()))
