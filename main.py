@@ -75,8 +75,11 @@ def experiment(variant, prev_exp_state=None):
         seed = np.random.randint(0, 1000000)
     torch.manual_seed(seed)
     np.random.seed(seed)
-    expl_env = env_producer(domain, seed)
-    eval_env = env_producer(domain, seed * 10 + 1)
+    env_args = {}
+    if domain in ['riverswim']:
+        env_args['dim'] = variant['dim']
+    expl_env = env_producer(domain, seed, **env_args)
+    eval_env = env_producer(domain, seed * 10 + 1, **env_args)
     obs_dim = expl_env.observation_space.low.size
     action_dim = expl_env.action_space.low.size
 
@@ -188,6 +191,7 @@ def get_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
+    parser.add_argument('--dim', type=int, default=15)
     parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
@@ -290,6 +294,7 @@ if __name__ == "__main__":
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
     variant['alg'] = args.alg
+    variant['dim'] = args.dim
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
