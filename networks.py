@@ -25,7 +25,9 @@ class Mlp(nn.Module):
             hidden_activation=F.relu,
             output_activation=identity,
             hidden_init=ptu.fanin_init,
-            b_init_value=0.1
+            b_init_value=0.1,
+            bias=None,
+            positive=False
     ):
         super().__init__()
 
@@ -34,6 +36,7 @@ class Mlp(nn.Module):
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         self.fcs = []
+        self.positive = positive
         in_size = input_size
 
         for i, next_size in enumerate(hidden_sizes):
@@ -46,7 +49,10 @@ class Mlp(nn.Module):
 
         self.last_fc = nn.Linear(in_size, output_size)
         self.last_fc.weight.data.uniform_(-init_w, init_w)
-        self.last_fc.bias.data.uniform_(-init_w, init_w)
+        if bias is None:
+            self.last_fc.bias.data.uniform_(-init_w, init_w)
+        else:
+            self.last_fc.bias.data.fill_(bias)
 
     def forward(self, input, return_preactivations=False):
         h = input
@@ -55,6 +61,8 @@ class Mlp(nn.Module):
             h = self.hidden_activation(h)
         preactivation = self.last_fc(h)
         output = self.output_activation(preactivation)
+        if self.positive:
+            output = torch.exp(output)
         if return_preactivations:
             return output, preactivation
         else:

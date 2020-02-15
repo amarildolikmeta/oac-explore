@@ -1,12 +1,10 @@
 import abc
 from collections import OrderedDict
-
 from torch import nn as nn
 from utils.logging import logger
 import utils.eval_util as eval_util
 from utils.rng import get_global_pkg_rng_state
 import utils.pytorch_util as ptu
-
 import gtimer as gt
 from replay_buffer import ReplayBuffer
 from path_collector import MdpPathCollector, RemoteMdpPathCollector

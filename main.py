@@ -11,7 +11,8 @@ from launcher_util import run_experiment_here
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
 from trainer.policies import TanhGaussianPolicy, MakeDeterministic
 from trainer.trainer import SACTrainer
-from trainer.opt_trainer import OptTrainer
+from trainer.particle_trainer import ParticleTrainer
+from trainer.gaussian_trainer import GaussianTrainer
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
@@ -55,11 +56,12 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes):
 
 
 def get_q_producer(obs_dim, action_dim, hidden_sizes, output_size=1):
-    def q_producer(bias=0.1):
+    def q_producer(bias=None, positive=False):
         return FlattenMlp(input_size=obs_dim + action_dim,
                           output_size=output_size,
                           hidden_sizes=hidden_sizes,
-                          b_init_value=bias)
+                          bias=bias,
+                          positive=positive)
 
     return q_producer
 
@@ -117,10 +119,10 @@ def experiment(variant, prev_exp_state=None):
             action_space=expl_env.action_space,
             **variant['trainer_kwargs']
         )
-    elif variant['alg'] == 'w-oac':
+    elif variant['alg'] == 'p-oac':
         q_min = 0
         q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
-        trainer = OptTrainer(
+        trainer = ParticleTrainer(
             policy_producer,
             q_producer,
             n_estimators=n_estimators,
@@ -133,7 +135,7 @@ def experiment(variant, prev_exp_state=None):
     elif variant['alg'] == 'g-oac':
         q_min = 0
         q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
-        trainer = OptTrainer(
+        trainer = GaussianTrainer(
             policy_producer,
             q_producer,
             n_estimators=n_estimators,
@@ -152,7 +154,7 @@ def experiment(variant, prev_exp_state=None):
         remote_eval_data_collector=remote_eval_path_collector,
         replay_buffer=replay_buffer,
         optimistic_exp_hp=variant['optimistic_exp'],
-        deterministic=variant['alg'] == 'w-oac',
+        deterministic=variant['alg'] == 'p-oac',
         **variant['algorithm_kwargs']
     )
 
@@ -186,7 +188,7 @@ def get_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
-    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'w-oac', 'sac', 'g-oac',])
+    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--num_layers', type=int, default=2)
@@ -277,16 +279,16 @@ if __name__ == "__main__":
     variant['num_layers'] = args.num_layers
     variant['layer_size'] = args.layer_size
     variant['share_layers'] = args.share_layers
-    variant['n_estimators'] = args.n_estimators if args.alg == 'w-oac' else 2
+    variant['n_estimators'] = args.n_estimators if args.alg == 'p-oac' else 2
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
     variant['delta'] = args.delta
-    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['w-oac', 'sac',
+    variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
-    variant['optimistic_exp']['delta'] = args.delta if args.alg in ['w-oac', 'oac', 'g-oac'] else 0
+    variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
     variant['alg'] = args.alg
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
