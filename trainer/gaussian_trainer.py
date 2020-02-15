@@ -185,6 +185,8 @@ class GaussianTrainer(SACTrainer):
             """
             policy_loss = (upper_bound).mean()
 
+            self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(q_preds))
+            self.eval_statistics['QF std'] = np.mean(ptu.get_numpy(std_preds))
             self.eval_statistics['QF Loss'] = np.mean(ptu.get_numpy(q_loss))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Predictions',

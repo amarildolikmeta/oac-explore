@@ -172,6 +172,8 @@ class ParticleTrainer(SACTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
+            self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(qs), axis=0).mean()
+            self.eval_statistics['QF std'] = np.std(ptu.get_numpy(qs), axis=0).mean()
             policy_loss = (upper_bound).mean()
             for i in range(len(self.qfs)):
                 self.eval_statistics['QF' + str(i) + ' Loss'] = np.mean(ptu.get_numpy(qf_losses[i]))
@@ -202,7 +204,7 @@ class ParticleTrainer(SACTrainer):
         return [self.policy] + self.qfs + self.tfs
 
     def get_snapshot(self):
-        data =  dict(
+        data = dict(
             policy_state_dict=self.policy.state_dict(),
             policy_optim_state_dict=self.policy_optimizer.state_dict(),
 
