@@ -130,7 +130,7 @@ class SACTrainer(object):
             self.qf1(obs, new_obs_actions),
             self.qf2(obs, new_obs_actions),
         )
-        qs = [q(obs, new_obs_actions) for q in self.qfs]
+        #qs = [q(obs, new_obs_actions) for q in self.qfs]
         # delta = self.get_delta()
         # qs = torch.stack(qs, dim=0)
         # q_new_actions = torch.min(qs, dim=0)[0]
@@ -218,9 +218,9 @@ class SACTrainer(object):
             #         'Q' + str(i) + 'Predictions',
             #         ptu.get_numpy(q_preds[i]),
             #     ))
-            self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(torch.stack([self.qf1, self.qf2], dim=0))
+            self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(torch.stack([q1_pred, q2_pred], dim=0))
                                                       , axis=0).mean()
-            self.eval_statistics['QF std'] = np.std(ptu.get_numpy(torch.stack([self.qf1, self.qf2], dim=0))
+            self.eval_statistics['QF std'] = np.std(ptu.get_numpy(torch.stack([q1_pred, q2_pred], dim=0))
                                                     , axis=0).mean()
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
