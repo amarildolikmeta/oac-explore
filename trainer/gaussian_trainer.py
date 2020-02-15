@@ -140,7 +140,7 @@ class GaussianTrainer(SACTrainer):
         qf_losses = []
         qf_loss = 0
 
-        q_loss = self.qf_criterion(q_preds, target_q_values.detach())
+        q_loss = self.qf_criterion(q_preds, q_target.detach())
         self.q_optimizer.zero_grad()
         q_loss.backward(retain_graph=True)
         self.q_optimizer.step()

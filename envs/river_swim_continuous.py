@@ -73,15 +73,18 @@ class RiverSwimContinuous(gym.Env):
         self.state = self.np_random.rand() * 0.5
         return np.array([self.state])
 
+
 if __name__ == '__main__':
-    mdp = RiverSwimContinuous()
+    mdp = RiverSwimContinuous(dim=15)
 
     s = mdp.reset()
     rets = []
-    for i in range(100):
+    n = 1000
+    for i in range(n):
         t = 0
         ret = 0
-        while t < 1000:
+        s = mdp.reset()
+        while t < 100:
             #print(s)
             a = 1
             s, r, _, _ = mdp.step(a)
@@ -89,3 +92,4 @@ if __name__ == '__main__':
             t+=1
         rets.append(ret)
     print("Average Return:", np.mean(rets))
+    print("Average error:", np.std(rets) / np.sqrt(n))
