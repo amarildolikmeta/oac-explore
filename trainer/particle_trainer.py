@@ -6,6 +6,7 @@ from trainer.trainer import SACTrainer
 import utils.pytorch_util as ptu
 from utils.eval_util import create_stats_ordered_dict
 from typing import Iterable
+from utils.core import  torch_ify
 
 
 class ParticleTrainer(SACTrainer):
@@ -23,11 +24,13 @@ class ParticleTrainer(SACTrainer):
             optimizer_class=optim.Adam,
             soft_target_tau=1e-2,
             target_update_period=1,
-            use_automatic_entropy_tuning=True,
+            use_automatic_entropy_tuning=False,
             target_entropy=None,
             deterministic=True,
             q_min=0,
             q_max=100,
+            ensemble=False,
+            n_policies=1
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -65,6 +68,33 @@ class ParticleTrainer(SACTrainer):
             self.qf_optimizers.append(optimizer_class(
                 self.qfs[i].parameters(),
                 lr=qf_lr,))
+        self.ensemble = ensemble
+        self.n_policies = n_policies
+        if ensemble:
+            initial_actions = np.linspace(-1., 1., n_policies)
+            initial_actions[0] += 1e-5
+            initial_actions[-1] == 1e-5
+            self.policy = policy_producer(bias=initial_actions, ensemble=ensemble, n_policies=n_policies,
+                                          approximator=self)
+            self.policy_optimizers = []
+            for i in range(self.n_policies):
+                self.policy_optimizers.append(optimizer_class(
+                    self.policy.policies[i].parameters(),
+                    lr=policy_lr))
+
+    def predict(self, obs, action):
+        obs = np.array(obs)
+        #action = np.array(action)
+        obs = torch_ify(obs)
+        action = torch_ify(action)
+
+        qs = [q(obs, action) for q in self.qfs]
+
+        delta_index = self.delta_index
+        qs = torch.stack(qs, dim=0)
+        sorted_qs = torch.sort(qs, dim=0)[0]
+        upper_bound = sorted_qs[delta_index]
+        return upper_bound
 
     def train_from_torch(self, batch):
         rewards = batch['rewards']
@@ -73,39 +103,7 @@ class ParticleTrainer(SACTrainer):
         actions = batch['actions']
         next_obs = batch['next_observations']
 
-        """
-        Policy and Alpha Loss
-        """
-        new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
-            obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-        )
 
-        # if self.use_automatic_entropy_tuning:
-        #     alpha_loss = -(self.log_alpha *
-        #                    (log_pi +
-        #                     self.target_entropy).detach()).mean()
-        #     self.alpha_optimizer.zero_grad()
-        #     alpha_loss.backward()
-        #     self.alpha_optimizer.step()
-        #     alpha = self.log_alpha.exp()
-        # else:
-        #     alpha_loss = 0
-        #     alpha = 1
-        qs = [q(obs, new_obs_actions) for q in self.qfs]
-
-        # q_new_actions = torch.min(
-        #     self.qf1(obs, new_obs_actions),
-        #     self.qf2(obs, new_obs_actions),
-        # )
-        delta_index = self.delta_index
-        qs = torch.stack(qs, dim=0)
-        sorted_qs = torch.sort(qs, dim=0)[0]
-
-        # q_new_actions = torch.min(qs, dim=0)[0]
-        upper_bound = sorted_qs[delta_index]
-
-        ##upper_bound (in some way)
-        policy_loss = (-upper_bound).mean()
 
         """
         QF Loss
@@ -113,14 +111,11 @@ class ParticleTrainer(SACTrainer):
         q_preds = []
         for i in range(len(self.qfs)):
             q_preds.append(self.qfs[i](obs, actions))
-        # q1_pred = self.qf1(obs, actions)
-        # q2_pred = self.qf2(obs, actions)
-        # Make sure policy accounts for squashing
-        # functions like tanh correctly!
+
         qs = torch.stack(q_preds, dim=0)
         sorted_qs = torch.sort(qs, dim=0)[0]
         new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
         )
         target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
@@ -140,19 +135,45 @@ class ParticleTrainer(SACTrainer):
             self.qf_optimizers[i].step()
 
         """
-        # Update networks
-        # """
-        # self.qf1_optimizer.zero_grad()
-        # qf1_loss.backward()
-        # self.qf1_optimizer.step()
-        #
-        # self.qf2_optimizer.zero_grad()
-        # qf2_loss.backward()
-        # self.qf2_optimizer.step()
+        Policy and Alpha Loss
+        """
+        if self.ensemble:
+            for i in range(self.n_policies):
+                new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy.policies[i](
+                    obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+                )
 
-        self.policy_optimizer.zero_grad()
-        policy_loss.backward()
-        self.policy_optimizer.step()
+                qs = [q(obs, new_obs_actions) for q in self.qfs]
+                delta_index = self.delta_index
+                qs = torch.stack(qs, dim=0)
+                sorted_qs = torch.sort(qs, dim=0)[0]
+                upper_bound = sorted_qs[delta_index]
+
+                ##upper_bound (in some way)
+                policy_loss = (-upper_bound).mean()
+                optimizer = self.policy_optimizers[i]
+                optimizer.zero_grad()
+                policy_loss.backward()
+                optimizer.step()
+        else:
+            new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
+                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+
+            qs = [q(obs, new_obs_actions) for q in self.qfs]
+
+            delta_index = self.delta_index
+            qs = torch.stack(qs, dim=0)
+            sorted_qs = torch.sort(qs, dim=0)[0]
+
+            # q_new_actions = torch.min(qs, dim=0)[0]
+            upper_bound = sorted_qs[delta_index]
+
+            ##upper_bound (in some way)
+            policy_loss = (-upper_bound).mean()
+            self.policy_optimizer.zero_grad()
+            policy_loss.backward()
+            self.policy_optimizer.step()
 
         """
         Soft Updates
@@ -201,7 +222,10 @@ class ParticleTrainer(SACTrainer):
 
     @property
     def networks(self) -> Iterable[nn.Module]:
-        return [self.policy] + self.qfs + self.tfs
+        if self.ensemble:
+            return self.policy.policies + self.qfs + self.tfs
+        else:
+            return [self.policy] + self.qfs + self.tfs
 
     def get_snapshot(self):
         data = dict(

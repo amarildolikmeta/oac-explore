@@ -113,13 +113,17 @@ class TanhGaussianPolicy(Mlp):
             action_dim,
             std=None,
             init_w=1e-3,
+            bias=None,
             **kwargs
     ):
+        if bias is not None:
+            bias = np.arctanh(bias)
         super().__init__(
             hidden_sizes,
             input_size=obs_dim,
             output_size=action_dim,
             init_w=init_w,
+            bias=bias,
             **kwargs
         )
         self.log_std = None
@@ -191,7 +195,9 @@ class TanhGaussianPolicy(Mlp):
                     action = tanh_normal.rsample()
                 else:
                     action = tanh_normal.sample()
-
+        if log_prob is None:
+            log_prob = torch.zeros_like(action)
+            pre_tanh_value = torch.zeros_like(action)
         return (
             action, mean, log_std, log_prob, std,
             pre_tanh_value,
@@ -230,15 +236,104 @@ class MakeDeterministic(object):
     def to(self, **args):
         return self.stochastic_policy.to(**args)
 
-def policy_producer(obs_dim, action_dim, hidden_sizes, deterministic=False):
+def policy_producer(obs_dim, action_dim, hidden_sizes, deterministic=False, ensemble=False, n_policies=1,
+                    approximator=None, bias=None):
+    if ensemble:
+        policy = EnsemblePolicy(approximator=approximator,
+                                hidden_sizes=hidden_sizes,
+                                obs_dim=obs_dim,
+                                action_dim=action_dim,
+                                n_policies=n_policies,
+                                bias=bias)
+    else:
+        policy = TanhGaussianPolicy(
+            obs_dim=obs_dim,
+            action_dim=action_dim,
+            hidden_sizes=hidden_sizes,
+        )
 
-    policy = TanhGaussianPolicy(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        hidden_sizes=hidden_sizes,
-    )
-
-    if deterministic:
-        policy = MakeDeterministic(policy)
+        if deterministic:
+            policy = MakeDeterministic(policy)
 
     return policy
+
+
+class EnsemblePolicy:
+    def __init__(
+            self,
+            approximator,
+            hidden_sizes,
+            obs_dim,
+            action_dim,
+            std=None,
+            init_w=1e-3,
+            bias=None,
+            n_policies=1,
+            **kwargs
+    ):
+        self.policies = []
+        for i in range(n_policies):
+            self.policies.append(TanhGaussianPolicy(hidden_sizes, obs_dim, action_dim, std, init_w, bias[i],
+                                                    **kwargs))
+        self.approximator = approximator
+
+    def __call__(self, **args):
+        return self.forward(**args)
+
+    def forward(self,
+                obs,
+                reparameterize=True,
+                deterministic=False,
+                return_log_prob=False,
+                ):
+        actions = []
+        values = []
+        results = []
+        for i in range(len(self.policies)):
+            res = self.policies[i].forward(obs, reparameterize, deterministic, return_log_prob)
+            actions.append(res[0])
+            values.append(self.approximator.predict(obs, res[0]))
+            results.append(torch.stack([res[j] for j in range(len(res))], dim=0))
+        values = torch.stack(values, dim=0)
+        results = torch.stack(results, dim=0).permute([2, 0, 1, -1])
+        argmax = torch.max(values, dim=0)[1]
+        max_res = results[torch.arange(results.shape[0]), argmax[:, 0]].permute([1, 0, -1])
+
+        return tuple([max_res[i] for i in range(max_res.shape[0])])
+
+    def get_action(self, obs_np, deterministic=False):
+        actions = []
+        values = []
+        max_value = -np.inf
+        max_index = -1
+        max_res = None
+        for i in range(len(self.policies)):
+            action = self.get_actions(obs_np[None], deterministic=deterministic, index=i)
+            actions.append(action)
+            values.append(self.approximator.predict([obs_np], action)[0])
+            if values[i] > max_value:
+                max_value = values[i]
+                max_index = i
+                max_res = action
+        return max_res[0, :], {}
+
+    def get_actions(self, obs_np, deterministic=False, index=0):
+        return eval_np(self.policies[index], obs_np, deterministic=deterministic)[0]
+
+    def reset(self):
+        pass
+
+    def load_state_dict(self, state_dicts):
+        for i in range(len(self.policies)):
+            self.policies[i].load_state_dict(state_dicts[i])
+
+    def state_dict(self, **args):
+        state_dict = []
+        for i in range(len(self.policies)):
+            state_dict.append(self.policies[i].load_state_dict(**args))
+        return state_dict
+
+    def to(self, **args):
+        for i in range(len(self.policies)):
+            self.policies[i].to(**args)
+        #return self.stochastic_policy.to(**args)

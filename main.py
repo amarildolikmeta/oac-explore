@@ -9,7 +9,7 @@ from utils.env_utils import NormalizedBoxEnv, domain_to_epoch, env_producer
 from utils.rng import set_global_pkg_rng_state
 from launcher_util import run_experiment_here
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
-from trainer.policies import TanhGaussianPolicy, MakeDeterministic
+from trainer.policies import TanhGaussianPolicy, MakeDeterministic, EnsemblePolicy
 from trainer.trainer import SACTrainer
 from trainer.particle_trainer import ParticleTrainer
 from trainer.gaussian_trainer import GaussianTrainer
@@ -39,16 +39,24 @@ def get_current_branch(dir):
 
 def get_policy_producer(obs_dim, action_dim, hidden_sizes):
 
-    def policy_producer(deterministic=False):
-
-        policy = TanhGaussianPolicy(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            hidden_sizes=hidden_sizes,
-        )
-
-        if deterministic:
-            policy = MakeDeterministic(policy)
+    def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1,
+                    approximator=None):
+        if ensemble:
+            policy = EnsemblePolicy(approximator=approximator,
+                                    hidden_sizes=hidden_sizes,
+                                    obs_dim=obs_dim,
+                                    action_dim=action_dim,
+                                    n_policies=n_policies,
+                                    bias=bias)
+        else:
+            policy = TanhGaussianPolicy(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                hidden_sizes=hidden_sizes,
+                bias=bias
+            )
+            if deterministic:
+                policy = MakeDeterministic(policy)
 
         return policy
 
@@ -133,6 +141,8 @@ def experiment(variant, prev_exp_state=None):
             q_min=q_min,
             q_max=q_max,
             action_space=expl_env.action_space,
+            ensemble=variant['ensemble'],
+            n_policies=variant['n_policies'],
             **variant['trainer_kwargs']
         )
     elif variant['alg'] == 'g-oac':
@@ -147,6 +157,8 @@ def experiment(variant, prev_exp_state=None):
             q_max=q_max,
             action_space=expl_env.action_space,
             pac=variant['pac'],
+            ensemble=variant['ensemble'],
+            n_policies=variant['n_policies'],
             **variant['trainer_kwargs']
         )
     else:
@@ -192,8 +204,10 @@ def get_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
-    parser.add_argument('--dim', type=int, default=15)
+    parser.add_argument('--dim', type=int, default=25)
     parser.add_argument('--pac', action="store_true")
+    parser.add_argument('--ensemble', action="store_true")
+    parser.add_argument('--n_policies', type=int, default=5)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
@@ -298,6 +312,8 @@ if __name__ == "__main__":
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
 
     variant['trainer_kwargs']['discount'] = args.gamma
+    variant['ensemble'] = args.ensemble
+    variant['n_policies'] = args.n_policies if args.ensemble else 1
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim

@@ -39,7 +39,8 @@ class MdpPathCollector(object):
             discard_incomplete_paths,
             optimistic_exploration=False,
             optimistic_exploration_kwargs={},
-            deterministic_pol=False,
+            deterministic_pol=False
+
     ):
         paths = []
         num_steps_collected = 0
@@ -175,7 +176,7 @@ def rollout(
         render_kwargs=None,
         optimistic_exploration=False,
         optimistic_exploration_kwargs={},
-        deterministic_pol=False,
+        deterministic_pol=False
 ):
     """
     The following value for the following keys will be a 2D array, with the

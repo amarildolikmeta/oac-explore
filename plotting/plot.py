@@ -5,16 +5,17 @@ import glob
 dir = '../data/data_remote/dim_15/'
 
 envs = ['riverswim']
-settings = ['oac', 'p-oac', 'g-oac', 'sac'] #, ,
+settings = ['oac', 'p-oac', 'sac', 'pac-oac'] #, , 'g-oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
-          'trainer/QF mean', 'trainer/QF std']
+          'trainer/QF mean', 'trainer/QF std', 'trainer/QF std 2']
 field_to_label ={
     'remote_evaluation/Average Returns': 'offline return',
     'exploration/Average Returns': 'online return',
     'trainer/QF mean': 'Mean Q',
-    'trainer/QF std': 'Std Q'
+    'trainer/QF std': 'Std Q',
+    'trainer/QF std 2': 'Std Q 2'
 }
 separate = False
 count = 0
@@ -22,7 +23,7 @@ plot_count = 0
 n_col = 2
 subsample = 5
 for env in envs:
-    fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 12))
+    fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 20))
     fig.suptitle(env)
     col = 0
     for f, field in enumerate(fields):
@@ -33,7 +34,10 @@ for env in envs:
             results = []
             final_results = []
             for j, p in enumerate(paths):
-                data = pd.read_csv(p, usecols=fields)
+                try:
+                    data = pd.read_csv(p, usecols=[field])
+                except:
+                    break
                 res = np.array(data[field])
                 if separate:
                     plt.plot(res, label=setting + '-' + str(j), color=colors[count % len(colors)])
@@ -42,7 +46,7 @@ for env in envs:
                     if len(res) < min_rows:
                         min_rows = len(res)
                     results.append(res)
-            if not separate:
+            if not separate and len(results) > 0:
                 for i, _ in enumerate(paths):
                     final_results.append(results[i][:min_rows])
                 data = np.stack(final_results, axis=0)

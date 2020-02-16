@@ -7,6 +7,7 @@ import utils.pytorch_util as ptu
 from utils.eval_util import create_stats_ordered_dict
 from typing import Iterable
 from scipy.stats import norm
+from utils.core import  torch_ify
 
 
 class GaussianTrainer(SACTrainer):
@@ -25,12 +26,14 @@ class GaussianTrainer(SACTrainer):
             optimizer_class=optim.Adam,
             soft_target_tau=1e-2,
             target_update_period=1,
-            use_automatic_entropy_tuning=True,
+            use_automatic_entropy_tuning=False,
             target_entropy=None,
             deterministic=True,
             q_min=0,
             q_max=100,
-            pac=False
+            pac=False,
+            ensemble=False,
+            n_policies=1
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -93,6 +96,31 @@ class GaussianTrainer(SACTrainer):
         #     self.qf_optimizers.append(optimizer_class(
         #         self.qfs[i].parameters(),
         #         lr=qf_lr,))
+        self.ensemble = ensemble
+        self.n_policies = n_policies
+        if ensemble:
+            initial_actions = np.linspace(-1., 1., n_policies)
+            self.policy = policy_producer(bias=initial_actions, ensemble=ensemble, n_policies=n_policies,
+                                          approximator=self)
+            self.policy_optimizers = []
+            for i in range(self.n_policies):
+                self.policy_optimizers.append(optimizer_class(
+                    self.policy.policies[i].parameters(),
+                    lr=policy_lr))
+
+    def predict(self, obs, action):
+        obs = np.array(obs)
+        # action = np.array(action)
+        obs = torch_ify(obs)
+        action = torch_ify(action)
+        qs = self.q(obs, action)
+        if self.pac:
+            stds = self.std_2(obs, action)
+        else:
+            stds = self.std(obs, action)
+
+        upper_bound = qs + self.standard_bound * stds
+        return upper_bound
 
     def train_from_torch(self, batch):
         rewards = batch['rewards']
@@ -101,57 +129,20 @@ class GaussianTrainer(SACTrainer):
         actions = batch['actions']
         next_obs = batch['next_observations']
 
-        """
-        Policy and Alpha Loss
-        """
-        new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
-            obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-        )
 
-        # if self.use_automatic_entropy_tuning:
-        #     alpha_loss = -(self.log_alpha *
-        #                    (log_pi +
-        #                     self.target_entropy).detach()).mean()
-        #     self.alpha_optimizer.zero_grad()
-        #     alpha_loss.backward()
-        #     self.alpha_optimizer.step()
-        #     alpha = self.log_alpha.exp()
-        # else:
-        #     alpha_loss = 0
-        #     alpha = 1
-        qs = self.q(obs, new_obs_actions)
-        if self.pac:
-            stds = self.std_2(obs, new_obs_actions)
-        else:
-            stds = self.std(obs, new_obs_actions)
-        # q_new_actions = torch.min(
-        #     self.qf1(obs, new_obs_actions),
-        #     self.qf2(obs, new_obs_actions),
-        # )
-        # qs = torch.stack(qs, dim=0)
-        # sorted_qs = torch.sort(qs, dim=0)[0]
-
-        # q_new_actions = torch.min(qs, dim=0)[0]
-        upper_bound = qs + self.standard_bound * stds
-        ##upper_bound (in some way)
-        policy_loss = (-upper_bound).mean()
 
         """
         QF Loss
         """
-
         q_preds = self.q(obs, actions)
 
-        # q1_pred = self.qf1(obs, actions)
-        # q2_pred = self.qf2(obs, actions)
         # Make sure policy accounts for squashing
         # functions like tanh correctly!
 
         new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
         )
         target_q = self.q_target(next_obs, new_next_actions)
-
 
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_q
@@ -167,12 +158,12 @@ class GaussianTrainer(SACTrainer):
             target_stds_2 = self.std_2_target(next_obs, new_next_actions)
 
             std_target = (1. - terminals) * self.discount * target_stds_2
+            std_target_2 = (1. - terminals) * self.discount * self.sigma_b / np.sqrt((self._n_train_steps_total + 1))
+
             std_loss = self.qf_criterion(std_preds, std_target.detach())
             self.std_optimizer.zero_grad()
             std_loss.backward(retain_graph=True)
             self.std_optimizer.step()
-
-            std_target_2 = (1. - terminals) * self.discount * self.sigma_b / np.sqrt((self._n_train_steps_total + 1))
             std_loss_2 = self.qf_criterion(std_preds_2, std_target_2.detach())
             self.std_2_optimizer.zero_grad()
             std_loss_2.backward(retain_graph=True)
@@ -187,19 +178,44 @@ class GaussianTrainer(SACTrainer):
             std_loss.backward(retain_graph=True)
             self.std_optimizer.step()
         """
-        # Update networks
-        # """
-        # self.qf1_optimizer.zero_grad()
-        # qf1_loss.backward()
-        # self.qf1_optimizer.step()
-        #
-        # self.qf2_optimizer.zero_grad()
-        # qf2_loss.backward()
-        # self.qf2_optimizer.step()
+        Policy and Alpha Loss
+        """
+        if self.ensemble:
+            for i in range(self.n_policies):
+                new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy.policies[i](
+                    obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+                )
 
-        self.policy_optimizer.zero_grad()
-        policy_loss.backward()
-        self.policy_optimizer.step()
+                qs = self.q(obs, new_obs_actions)
+                if self.pac:
+                    stds = self.std_2(obs, new_obs_actions)
+                else:
+                    stds = self.std(obs, new_obs_actions)
+                upper_bound = qs + self.standard_bound * stds
+
+                ##upper_bound (in some way)
+                policy_loss = (-upper_bound).mean()
+                optimizer = self.policy_optimizers[i]
+                optimizer.zero_grad()
+                policy_loss.backward()
+                optimizer.step()
+        else:
+            new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
+                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+
+            qs = self.q(obs, new_obs_actions)
+            if self.pac:
+                stds = self.std_2(obs, new_obs_actions)
+            else:
+                stds = self.std(obs, new_obs_actions)
+            upper_bound = qs + self.standard_bound * stds
+
+            ##upper_bound (in some way)
+            policy_loss = (-upper_bound).mean()
+            self.policy_optimizer.zero_grad()
+            policy_loss.backward()
+            self.policy_optimizer.step()
 
         """
         Soft Updates
@@ -262,7 +278,10 @@ class GaussianTrainer(SACTrainer):
 
     @property
     def networks(self) -> Iterable[nn.Module]:
-        return [self.policy] + self.qfs + self.tfs
+        if self.ensemble:
+            return self.policy.policies + self.qfs + self.tfs
+        else:
+            return [self.policy] + self.qfs + self.tfs
 
     def get_snapshot(self):
         data = dict(
