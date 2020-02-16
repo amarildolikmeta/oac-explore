@@ -330,7 +330,7 @@ class EnsemblePolicy:
     def state_dict(self, **args):
         state_dict = []
         for i in range(len(self.policies)):
-            state_dict.append(self.policies[i].load_state_dict(**args))
+            state_dict.append(self.policies[i].state_dict(**args))
         return state_dict
 
     def to(self, **args):
