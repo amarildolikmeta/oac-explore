@@ -49,6 +49,7 @@ for env in envs:
                 n = data.shape[0]
                 mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
+
                 indexes = [i * subsample for i in range(len(mean) // subsample)]
                 mean = mean[indexes]
                 std = std[indexes]
@@ -56,11 +57,14 @@ for env in envs:
                     label = setting
                 else:
                     label = None
-                ax[col // n_col][col % n_col].plot(mean, label=label, color=colors[s], marker=markers[s])
+                ax[col // n_col][col % n_col].plot(indexes, mean, label=label, color=colors[s], marker=markers[s])
                 if n > 1:
-                    ax[col // n_col][col % n_col].fill_between(list(range(len(mean))), mean - 2 * (std / np.sqrt(n)),
+                    ax[col // n_col][col % n_col].fill_between(indexes, mean - 2 * (std / np.sqrt(n)),
                                          mean + 2 * (std / np.sqrt(n)),
                                  alpha=0.2, color=colors[s])
+        ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 20})
+        if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
+            ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 20})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 20})
         col += 1
         plot_count += 1

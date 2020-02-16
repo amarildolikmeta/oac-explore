@@ -146,6 +146,7 @@ def experiment(variant, prev_exp_state=None):
             q_min=q_min,
             q_max=q_max,
             action_space=expl_env.action_space,
+            pac=variant['pac'],
             **variant['trainer_kwargs']
         )
     else:
@@ -192,6 +193,8 @@ def get_cmd_args():
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
     parser.add_argument('--dim', type=int, default=15)
+    parser.add_argument('--pac', action="store_true")
+    parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
@@ -293,8 +296,12 @@ if __name__ == "__main__":
                                                                                                       'g-oac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
+
+    variant['trainer_kwargs']['discount'] = args.gamma
+
     variant['alg'] = args.alg
     variant['dim'] = args.dim
+    variant['pac'] = args.pac
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
