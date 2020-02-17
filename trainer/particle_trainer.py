@@ -113,13 +113,16 @@ class ParticleTrainer(SACTrainer):
             q_preds.append(self.qfs[i](obs, actions))
 
         qs = torch.stack(q_preds, dim=0)
-        sorted_qs = torch.sort(qs, dim=0)[0]
+        sorted_qs, qs_indexes = torch.sort(qs, dim=0)
         new_next_actions, _, _, new_log_pi, *_ = self.policy(
             obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
         )
+        normal_order = torch.stack([torch.ones(qs.shape[1]) * i for i in range(qs.shape[0])], dim=0)
+        num_current_out_of_order = torch.sum(torch.squeeze(qs_indexes) != normal_order)
         target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
-        target_qs_sorted = torch.sort(target_qs, dim=0)[0]
+        target_qs_sorted, target_qs_indexes = torch.sort(target_qs, dim=0)
+        num_target_out_of_order = torch.sum(torch.squeeze(target_qs_indexes) != normal_order)
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_qs_sorted
         q_target = self.reward_scale * rewards + \
@@ -195,6 +198,9 @@ class ParticleTrainer(SACTrainer):
             """
             self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(qs), axis=0).mean()
             self.eval_statistics['QF std'] = np.std(ptu.get_numpy(qs), axis=0).mean()
+            self.eval_statistics['QF Unordered'] = ptu.get_numpy(num_current_out_of_order).mean()
+            self.eval_statistics['QF target Undordered'] = ptu.get_numpy(num_target_out_of_order).mean()
+
             policy_loss = (upper_bound).mean()
             for i in range(len(self.qfs)):
                 self.eval_statistics['QF' + str(i) + ' Loss'] = np.mean(ptu.get_numpy(qf_losses[i]))

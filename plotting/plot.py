@@ -2,14 +2,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
-dir = '../data/data_remote/dim_15/'
+dir = '../data/data_remote/dim_25/'
 
 envs = ['riverswim']
-settings = ['oac', 'p-oac', 'sac', 'pac-oac'] #, , 'g-oac',
+settings = ['oac', 'p-oac', 'sac', 'g-oac', 'g-oac-single'] #, , 'g-oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
-          'trainer/QF mean', 'trainer/QF std', 'trainer/QF std 2']
+          'trainer/QF mean', 'trainer/QF std']#, 'trainer/QF std 2']
 field_to_label ={
     'remote_evaluation/Average Returns': 'offline return',
     'exploration/Average Returns': 'online return',

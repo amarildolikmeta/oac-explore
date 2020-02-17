@@ -75,7 +75,7 @@ class RiverSwimContinuous(gym.Env):
 
 
 if __name__ == '__main__':
-    mdp = RiverSwimContinuous(dim=15)
+    mdp = RiverSwimContinuous(dim=25)
 
     s = mdp.reset()
     rets = []
