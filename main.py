@@ -218,7 +218,7 @@ def get_cmd_args():
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--log_dir', type=str, default='./data/')
     parser.add_argument('--max_path_length', type=int, default=200)
-    parser.add_argument('--r_min', type=int, default=-0.1)
+    parser.add_argument('--r_min', type=float, default=0)
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
