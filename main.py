@@ -212,11 +212,12 @@ def get_cmd_args():
     parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
-    parser.add_argument('--num_layers', type=int, default=2)
-    parser.add_argument('--layer_size', type=int, default=256)
+    parser.add_argument('--num_layers', type=int, default=1)
+    parser.add_argument('--layer_size', type=int, default=16)
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--log_dir', type=str, default='./data/')
+    parser.add_argument('--max_path_length', type=int, default=200)
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -224,7 +225,7 @@ def get_cmd_args():
 
     # Training param
     parser.add_argument('--num_expl_steps_per_train_loop',
-                        type=int, default=1000)
+                        type=int, default=2000)
     parser.add_argument('--num_trains_per_train_loop', type=int, default=1000)
 
     args = parser.parse_args()
@@ -305,6 +306,7 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
+    variant['algorithm_kwargs']['max_path_length'] = args.max_path_length
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac']
