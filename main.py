@@ -131,7 +131,7 @@ def experiment(variant, prev_exp_state=None):
             **variant['trainer_kwargs']
         )
     elif variant['alg'] == 'p-oac':
-        q_min = 0
+        q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
         trainer = ParticleTrainer(
             policy_producer,
@@ -146,7 +146,7 @@ def experiment(variant, prev_exp_state=None):
             **variant['trainer_kwargs']
         )
     elif variant['alg'] == 'g-oac':
-        q_min = 0
+        q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
         trainer = GaussianTrainer(
             policy_producer,
@@ -218,6 +218,7 @@ def get_cmd_args():
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--log_dir', type=str, default='./data/')
     parser.add_argument('--max_path_length', type=int, default=200)
+    parser.add_argument('--r_min', type=int, default=-0.1)
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -320,6 +321,7 @@ if __name__ == "__main__":
     variant['alg'] = args.alg
     variant['dim'] = args.dim
     variant['pac'] = args.pac
+    variant['r_min'] = args.r_min
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
