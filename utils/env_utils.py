@@ -129,7 +129,7 @@ def domain_to_env(name):
         from gym.envs.mujoco import HalfCheetahEnv, \
             InvertedPendulumEnv, HumanoidEnv, \
             HopperEnv, AntEnv, Walker2dEnv
-        from gym.envs.classic_control.cartpole import CartPoleEnv as Cartpole
+        from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         from envs.river_swim_continuous import RiverSwimContinuous
         return {
@@ -144,7 +144,7 @@ def domain_to_env(name):
             'riverswim': RiverSwimContinuous
         }[name]
     except:
-        from gym.envs.classic_control.cartpole import CartPoleEnv as Cartpole
+        from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         from envs.river_swim_continuous import RiverSwimContinuous
         return {
