@@ -129,10 +129,12 @@ class ParticleTrainer(SACTrainer):
                    (1. - terminals) * self.discount * target_q_values
         qf_losses = []
         qf_loss = 0
-        ## Do the inverse ordering to give each head the correct targets wrt the specific quantile they represent for each sample in the batch
+
+        ## Do the inverse ordering to give each head the correct targets wrt
+        # the specific quantile they represent for each sample in the batch
         targets = torch.gather(target_qs_sorted, 0, qs_indexes)
         for i in range(len(self.qfs)):
-            q_loss = self.qf_criterion(sorted_qs[i], targets[i].detach())
+            q_loss = self.qf_criterion(qs[i], targets[i].detach())
             qf_losses.append(q_loss)
             qf_loss += q_loss
             self.qf_optimizers[i].zero_grad()

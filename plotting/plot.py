@@ -5,17 +5,20 @@ import glob
 dir = '../data/data_remote/dim_25/'
 
 envs = ['riverswim']
-settings = ['oac', 'p-oac', 'sac', 'g-oac', 'g-oac-single'] #, , 'g-oac',
+settings = ['oac', 'sac', 'g-oac', 'g-oac-single','p-oac-2'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
-          'trainer/QF mean', 'trainer/QF std']#, 'trainer/QF std 2']
-field_to_label ={
+          'trainer/QF mean', 'trainer/QF std',
+          'trainer/QF Unordered', 'trainer/QF target Undordered']#, 'trainer/QF std 2']
+field_to_label = {
     'remote_evaluation/Average Returns': 'offline return',
     'exploration/Average Returns': 'online return',
     'trainer/QF mean': 'Mean Q',
     'trainer/QF std': 'Std Q',
-    'trainer/QF std 2': 'Std Q 2'
+    'trainer/QF std 2': 'Std Q 2',
+    'trainer/QF Unordered': 'Q Unordered samples',
+    'trainer/QF target Undordered': 'Q Target Unordered samples'
 }
 separate = False
 count = 0
