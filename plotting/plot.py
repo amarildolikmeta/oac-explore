@@ -10,7 +10,7 @@ def running_mean(x, N):
 
 
 dir = '../data/data_remote/dim_25/'
-envs = ['mountain', 'riverswim'] #
+envs = ['cartpole', 'mountain', 'riverswim'] #
 settings = ['oac', 'sac', 'g-oac', 'g-oac-ensemble', 'p-oac', 'p-oac-ensemble'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
@@ -82,10 +82,10 @@ for env in envs:
                     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
                                          mean + 2 * (std / np.sqrt(n)),
                                  alpha=0.2, color=colors[s])
-        ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 10})
+        ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
-            ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 10})
-        ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 10})
+            ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
+        ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         col += 1
         plot_count += 1
     fig.legend(loc='lower center', ncol=len(fields))

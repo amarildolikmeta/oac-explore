@@ -73,7 +73,7 @@ class ParticleTrainer(SACTrainer):
         if ensemble:
             initial_actions = np.linspace(-1., 1., n_policies)
             initial_actions[0] += 1e-5
-            initial_actions[-1] == 1e-5
+            initial_actions[-1] -= 1e-5
             self.policy = policy_producer(bias=initial_actions, ensemble=ensemble, n_policies=n_policies,
                                           approximator=self)
             self.policy_optimizers = []
