@@ -132,7 +132,7 @@ def experiment(variant, prev_exp_state=None):
         )
     elif variant['alg'] == 'p-oac':
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
-        q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
+        q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
         trainer = ParticleTrainer(
             policy_producer,
             q_producer,
@@ -147,7 +147,7 @@ def experiment(variant, prev_exp_state=None):
         )
     elif variant['alg'] == 'g-oac':
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
-        q_max = 1 / (1 - variant['trainer_kwargs']['discount'])
+        q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
         trainer = GaussianTrainer(
             policy_producer,
             q_producer,
@@ -222,6 +222,8 @@ def get_cmd_args():
     parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
     parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--r_min', type=float, default=0.)
+    parser.add_argument('--r_max', type=float, default=1.)
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -329,6 +331,8 @@ if __name__ == "__main__":
     variant['dim'] = args.dim
     variant['pac'] = args.pac
     variant['r_min'] = args.r_min
+    variant['r_max'] = args.r_max
+
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
