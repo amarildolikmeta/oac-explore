@@ -311,8 +311,8 @@ if __name__ == "__main__":
     variant['replay_buffer_size'] = int(args.replay_buffer_size)
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
-    variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop if args.num_trains_per_train_loop > 0 else None
-    variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop if args.num_expl_steps_per_train_loop > 0 else None
+    variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
+    variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
     variant['algorithm_kwargs']['max_path_length'] = args.max_path_length
     variant['algorithm_kwargs']['num_eval_steps_per_epoch'] = args.num_eval_steps_per_epoch
     variant['algorithm_kwargs']['min_num_steps_before_training'] = args.min_num_steps_before_training
