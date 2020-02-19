@@ -314,6 +314,7 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_eval_steps_per_epoch'] = args.num_eval_steps_per_epoch
     variant['algorithm_kwargs']['min_num_steps_before_training'] = args.min_num_steps_before_training
     variant['algorithm_kwargs']['batch_size'] = args.batch_size
+    variant['algorithm_kwargs']['replay_buffer_size'] = int(args.replay_buffer_size)
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac']

@@ -10,7 +10,7 @@ def running_mean(x, N):
 
 
 dir = '../data/data_remote/dim_25/'
-envs = ['cartpole', 'mountain', 'riverswim'] #
+envs = ['humanoid'] #, 'cartpole', 'mountain', 'riverswim'
 settings = ['oac', 'sac', 'g-oac', 'g-oac-ensemble', 'p-oac', 'p-oac-ensemble'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
