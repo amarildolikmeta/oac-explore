@@ -308,6 +308,7 @@ if __name__ == "__main__":
     variant['layer_size'] = args.layer_size
     variant['share_layers'] = args.share_layers
     variant['n_estimators'] = args.n_estimators if args.alg == 'p-oac' else 2
+    variant['replay_buffer_size'] = int(args.replay_buffer_size)
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop if args.num_trains_per_train_loop > 0 else None
@@ -316,7 +317,7 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_eval_steps_per_epoch'] = args.num_eval_steps_per_epoch
     variant['algorithm_kwargs']['min_num_steps_before_training'] = args.min_num_steps_before_training
     variant['algorithm_kwargs']['batch_size'] = args.batch_size
-    variant['algorithm_kwargs']['replay_buffer_size'] = int(args.replay_buffer_size)
+
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac']
