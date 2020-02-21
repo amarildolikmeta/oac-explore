@@ -220,6 +220,7 @@ def get_cmd_args():
     parser.add_argument('--max_path_length', type=int, default=200)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
     parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
+    parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--r_min', type=float, default=0.)
@@ -293,7 +294,7 @@ if __name__ == "__main__":
     variant['n_estimators'] = args.n_estimators if args.alg == 'p-oac' else 2
     variant['replay_buffer_size'] = int(args.replay_buffer_size)
 
-    variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain)
+    variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain) if args.epochs <= 0 else args.epochs
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
     variant['algorithm_kwargs']['max_path_length'] = args.max_path_length
