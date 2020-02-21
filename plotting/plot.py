@@ -33,7 +33,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 5
+subsample = 1
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 20))
     fig.suptitle(env)

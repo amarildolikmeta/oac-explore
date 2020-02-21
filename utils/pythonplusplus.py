@@ -436,9 +436,12 @@ def load_gzip_pickle(path, mode='rb'):
 
     import pickle
     import gzip
-
-    with gzip.open(path, 'rb') as f:
-        return pickle.load(f)
+    try:
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+    except:
+        with gzip.open(path, 'rb') as f:
+            return pickle.load(f)
 
 
 def dump_pkl(path, obj, mode='wb'):

@@ -176,22 +176,21 @@ def experiment(variant, prev_exp_state=None):
 
     algorithm.to(ptu.device)
 
-    # if prev_exp_state is not None:
-    #
-    #     expl_path_collector.restore_from_snapshot(
-    #         prev_exp_state['exploration'])
-    #
-    #     ray.wait([remote_eval_path_collector.restore_from_snapshot.remote(
-    #         prev_exp_state['evaluation_remote'])])
-    #     ray.wait([remote_eval_path_collector.set_global_pkg_rng_state.remote(
-    #         prev_exp_state['evaluation_remote_rng_state']
-    #     )])
-    #
-    #     replay_buffer.restore_from_snapshot(prev_exp_state['replay_buffer'])
-    #
-    #     trainer.restore_from_snapshot(prev_exp_state['trainer'])
-    #
-    #     set_global_pkg_rng_state(prev_exp_state['global_pkg_rng_state'])
+    if prev_exp_state is not None:
+
+        expl_path_collector.restore_from_snapshot(
+            prev_exp_state['exploration'])
+
+        remote_eval_path_collector.restore_from_snapshot(
+            prev_exp_state['evaluation_remote'])
+        remote_eval_path_collector.set_global_pkg_rng_state(
+            prev_exp_state['evaluation_remote_rng_state'])
+
+        replay_buffer.restore_from_snapshot(prev_exp_state['replay_buffer'])
+
+        trainer.restore_from_snapshot(prev_exp_state['trainer'])
+
+        set_global_pkg_rng_state(prev_exp_state['global_pkg_rng_state'])
 
     start_epoch = prev_exp_state['epoch'] + \
         1 if prev_exp_state is not None else 0
@@ -212,6 +211,7 @@ def get_cmd_args():
     parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
+    parser.add_argument('--load_dir', type=str, default='')
     parser.add_argument('--num_layers', type=int, default=1)
     parser.add_argument('--layer_size', type=int, default=16)
     parser.add_argument('--n_estimators', type=int, default=2)
@@ -241,28 +241,11 @@ def get_cmd_args():
 
 def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True, should_include_domain=True):
 
-    log_dir = '../data/master/num_expl_steps_per_train_loop_1000_num_trains_per_train_loop_1000/ beta_UB_4.66_delta_23.53/mountain/seed_0'
     start_time = time.time()
-    log_dir = args.log_dir + args.domain + '/' + args.alg + '/' + str(start_time) + '/'
-    # # #       ''osp.join(
-    # # # get_current_branch('./'),
-    # #
-    # #     # Algo kwargs portion
-    # #     'num_expl_steps_per_train_loop_' + str(args.num_expl_steps_per_train_loop) + '_num_trains_per_train_loop_' +
-    # #     str(args.num_trains_per_train_loop),
-    # #
-    # #     # optimistic exploration dependent portion
-    # #    ' beta_UB_' + str(args.beta_UB) + '_delta_' + str(args.delta),
-    # # )
-    # #
-    # # if should_include_domain:
-    # #     log_dir = osp.join(log_dir, args.domain)
-    # #
-    # # if should_include_seed:
-    # #     log_dir = osp.join(log_dir, 'seed_' + str(args.seed))
-    # #
-    # # if should_include_base_log_dir:
-    #     log_dir = osp.join(args.base_log_dir, log_dir)
+    if args.load_dir != '':
+        log_dir = args.load_dir
+    else:
+        log_dir = args.log_dir + args.domain + '/' + args.alg + '/' + str(start_time) + '/'
 
     return log_dir
 

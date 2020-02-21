@@ -292,35 +292,49 @@ class Logger(object):
             if self._snapshot_mode == 'all':
                 file_name = osp.join(self._snapshot_dir,
                                      'itr_%d.zip_pkl' % itr)
-                pickle.dump(params, gzip.open(file_name, "wb"))
+                with open(file_name, 'wb') as f:
+                    pickle.dump(params, f)
+                #pickle.dump(params, gzip.open(file_name, "wb"))
             elif self._snapshot_mode == 'last':
                 # override previous params
                 file_name = osp.join(self._snapshot_dir, 'params.zip_pkl')
-                pickle.dump(params, gzip.open(file_name, "wb"))
+                with open(file_name, 'wb') as f:
+                    pickle.dump(params, f)
+                #pickle.dump(params, gzip.open(file_name, "wb"))
             elif self._snapshot_mode == "gap":
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(
                         self._snapshot_dir, 'itr_%d.zip_pkl' % itr)
-                    pickle.dump(params, gzip.open(file_name, "wb"))
+                    with open(file_name, 'wb') as f:
+                        pickle.dump(params, f)
+                    #pickle.dump(params, gzip.open(file_name, "wb"))
 
                     # Also save as a genericly named file
                     # to make loading easier
                     file_name = osp.join(self._snapshot_dir, 'params.zip_pkl')
-                    pickle.dump(params, gzip.open(file_name, "wb"))
+                    with open(file_name, 'wb') as f:
+                        pickle.dump(params, f)
+                    #pickle.dump(params, gzip.open(file_name, "wb"))
 
             # Save the params every snapshot_gap and override previously saved result
             elif self._snapshot_mode == "last_every_gap":
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(self._snapshot_dir, 'params.zip_pkl')
-                    pickle.dump(params, gzip.open(file_name, "wb"))
+                    with open(file_name, 'wb') as f:
+                        pickle.dump(params, f)
+                    #pickle.dump(params, gzip.open(file_name, "wb"))
 
             elif self._snapshot_mode == "gap_and_last":
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(
                         self._snapshot_dir, 'itr_%d.zip_pkl' % itr)
-                    pickle.dump(params, gzip.open(file_name, "wb"))
+                    with open(file_name, 'wb') as f:
+                        pickle.dump(params, f)
+                    #pickle.dump(params, gzip.open(file_name, "wb"))
                 file_name = osp.join(self._snapshot_dir, 'params.zip_pkl')
-                pickle.dump(params, gzip.open(file_name, "wb"))
+                with open(file_name, 'wb') as f:
+                    pickle.dump(params, f)
+                #pickle.dump(params, gzip.open(file_name, "wb"))
             elif self._snapshot_mode == 'none':
                 pass
             else:
