@@ -77,9 +77,9 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         # Fill the replay buffer to a minimum before training starts
         if self.min_num_steps_before_training > self.replay_buffer.num_steps_can_sample():
             init_expl_paths = self.expl_data_collector.collect_new_paths(
-                policy,
-                self.max_path_length,
-                self.min_num_steps_before_training,
+                policy=policy,
+                max_path_length=self.max_path_length,
+                num_steps=self.min_num_steps_before_training,
                 discard_incomplete_paths=False
             )
             self.replay_buffer.add_paths(init_expl_paths)
@@ -139,6 +139,13 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             #gt.stamp('remote evaluation wait')
 
             self._end_epoch(epoch)
+        eval_exploration_paths = self.remote_eval_data_collector.collect_new_paths(
+            policy,
+            self.max_path_length,
+            self.num_eval_steps_per_epoch,
+            discard_incomplete_paths=True,
+            deterministic_pol=True
+        )
 
     def _end_epoch(self, epoch):
         self._log_stats(epoch)

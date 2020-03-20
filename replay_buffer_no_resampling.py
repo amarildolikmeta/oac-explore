@@ -5,13 +5,14 @@ from gym.spaces import Discrete
 import numpy as np
 
 
-class ReplayBuffer(object):
+class ReplayBufferNoResampling(object):
 
     def __init__(
         self,
         max_replay_buffer_size,
         ob_space,
         action_space,
+
     ):
         """
         The class state which should not mutate
@@ -43,10 +44,12 @@ class ReplayBuffer(object):
 
         # self._terminals[i] = a terminal was received at time i
         self._terminals = np.zeros((max_replay_buffer_size, 1), dtype='uint8')
-
+        self.indices_to_replace = np.zeros(max_replay_buffer_size, dtype='uint64')
         self._top = 0
+        self._bottom_indexes = 0
+        self._top_indexes = 0
         self._size = 0
-
+        self._valid_indeces = []
     def add_path(self, path):
         """
         Add a path to the replay buffer.
@@ -85,37 +88,60 @@ class ReplayBuffer(object):
         for path in paths:
             self.add_path(path)
 
+    def add_indices_to_replace(self, indices):
+        for index in indices:
+            self.indices_to_replace[self._top_indexes] = index
+            self._top_indexes = (self._top_indexes + 1) % self._max_replay_buffer_size
+            self._valid_indeces.remove(index)
+        self._size -= len(indices)
+
     def add_sample(self, observation, action, reward, next_observation,
                    terminal, env_info, **kwargs):
 
         assert not isinstance(self._action_space, Discrete)
-
-        self._observations[self._top] = observation
-        self._actions[self._top] = action
-        self._rewards[self._top] = reward
-        self._terminals[self._top] = terminal
-        self._next_obs[self._top] = next_observation
-
+        if self._bottom_indexes == self._top_indexes:
+            # no invalid samples are present
+            index = self._top
+        else:
+            #replace these samples
+            index = self.indices_to_replace[self._bottom_indexes]
+        self._observations[index] = observation
+        self._actions[index] = action
+        self._rewards[index] = reward
+        self._terminals[index] = terminal
+        self._next_obs[index] = next_observation
+        self._valid_indeces.append(index)
         self._advance()
 
     def _advance(self):
-        self._top = (self._top + 1) % self._max_replay_buffer_size
+        if self._bottom_indexes == self._top_indexes:
+            self._top = (self._top + 1) % self._max_replay_buffer_size
+        else:
+            self._bottom_indexes = (self._bottom_indexes + 1) % self._max_replay_buffer_size
         if self._size < self._max_replay_buffer_size:
             self._size += 1
 
     def random_batch(self, batch_size):
-        indices = np.random.randint(0, self._size, batch_size)
-        batch = dict(
-            observations=self._observations[indices],
-            actions=self._actions[indices],
-            rewards=self._rewards[indices],
-            terminals=self._terminals[indices],
-            next_observations=self._next_obs[indices],
-        )
+
+        #indices = np.random.randint(0, self._size, batch_size)
+        indices = np.random.choice(self._valid_indeces, size=batch_size, replace=False).astype(int)
+        try:
+            batch = dict(
+                observations=self._observations[indices],
+                actions=self._actions[indices],
+                rewards=self._rewards[indices],
+                terminals=self._terminals[indices],
+                next_observations=self._next_obs[indices],
+            )
+        except Exception as e:
+            print(e)
+        #save indices where to put next batch of observations
+        #assumes same number of samples will come and will leave from the buffer
+        self.add_indices_to_replace(indices.tolist())
         return batch
 
     def num_steps_can_sample(self):
-        return self._size200
+        return self._size
 
     def get_diagnostics(self):
         return OrderedDict([
@@ -133,6 +159,10 @@ class ReplayBuffer(object):
             _rewards=self._rewards,
             _terminals=self._terminals,
             _top=self._top,
+            _indices_to_replace=self.indices_to_replace,
+            _bottom_indexes=self._bottom_indexes,
+            _top_indexes=self._top_indexes,
+            _valid_indeces=self._valid_indeces,
             _size=self._size,
         )
 

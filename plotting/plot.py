@@ -10,7 +10,7 @@ def running_mean(x, N):
 
 
 dir = '../data/data_remote/dim_25/'
-envs = ['humanoid'] #, 'cartpole', 'mountain', 'riverswim'
+envs = ['humanoid','cartpole', 'mountain', 'riverswim'] #,
 settings = ['oac', 'sac', 'g-oac', 'g-oac-ensemble', 'p-oac', 'p-oac-ensemble'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
@@ -33,9 +33,9 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 10
 for env in envs:
-    fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 20))
+    fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
     col = 0
     for f, field in enumerate(fields):
@@ -50,7 +50,7 @@ for env in envs:
                     data = pd.read_csv(p, usecols=[field])
                 except:
                     break
-                res = np.array(data[field])
+                res = np.array(data[field], dtype=np.float64)
                 if separate:
                     plt.plot(res, label=setting + '-' + str(j), color=colors[count % len(colors)])
                     count += 1
@@ -65,19 +65,19 @@ for env in envs:
                 n = data.shape[0]
                 mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
-                # mean = running_mean(mean, subsample)
-                # std = running_mean(std, subsample)
-                # x = list(range(len(mean)))
-                indexes = [i * subsample for i in range(len(mean) // subsample)]
-                mean = mean[indexes]
-                std = std[indexes]
-                x = indexes
+                mean = running_mean(mean, subsample)
+                std = running_mean(std, subsample)
+                x = list(range(len(mean)))
+                # indexes = [i * subsample for i in range(len(mean) // subsample)]
+                # mean = mean[indexes]
+                # std = std[indexes]
+                # x = indexes
 
                 if f == 0:
                     label = setting
                 else:
                     label = None
-                ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s], marker=markers[s])
+                ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
                 if n > 1:
                     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
                                          mean + 2 * (std / np.sqrt(n)),

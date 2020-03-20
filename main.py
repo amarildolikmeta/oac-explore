@@ -5,6 +5,7 @@ import torch
 import time
 import utils.pytorch_util as ptu
 from replay_buffer import ReplayBuffer
+from replay_buffer_no_resampling import ReplayBufferNoResampling
 from utils.env_utils import NormalizedBoxEnv, domain_to_epoch, env_producer
 from utils.rng import set_global_pkg_rng_state
 from launcher_util import run_experiment_here
@@ -118,11 +119,18 @@ def experiment(variant, prev_exp_state=None):
     expl_path_collector = MdpPathCollector(
         expl_env,
     )
-    replay_buffer = ReplayBuffer(
-        variant['replay_buffer_size'],
-        ob_space=expl_env.observation_space,
-        action_space=expl_env.action_space
-    )
+    if variant["no_resampling"] and variant['alg'] in ['p-oac', 'g-oac']:
+        replay_buffer = ReplayBufferNoResampling(
+            variant['replay_buffer_size'],
+            ob_space=expl_env.observation_space,
+            action_space=expl_env.action_space
+        )
+    else:
+        replay_buffer = ReplayBuffer(
+            variant['replay_buffer_size'],
+            ob_space=expl_env.observation_space,
+            action_space=expl_env.action_space
+        )
     if variant['alg'] in ['oac', 'sac']:
         trainer = SACTrainer(
             policy_producer,
@@ -229,6 +237,8 @@ def get_cmd_args():
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
+    parser.add_argument('--no_resampling', action="store_true",
+                        help="Samples are removed from replay buffer after being used once")
 
     # Training param
     parser.add_argument('--num_expl_steps_per_train_loop',
@@ -315,9 +325,16 @@ if __name__ == "__main__":
     variant['alg'] = args.alg
     variant['dim'] = args.dim
     variant['pac'] = args.pac
+    variant['no_resampling'] = args.no_resampling
     variant['r_min'] = args.r_min
     variant['r_max'] = args.r_max
 
+    if args.no_resampling:
+        variant['algorithm_kwargs']['num_trains_per_train_loop'] = 500
+        variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = 500 * args.batch_size
+        variant['algorithm_kwargs']['min_num_steps_before_training'] = 4 * 500 * args.batch_size
+        variant['algorithm_kwargs']['batch_size'] = args.batch_size
+        variant['replay_buffer_size'] = 5 * 500 * args.batch_size
     if torch.cuda.is_available():
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
@@ -333,5 +350,4 @@ if __name__ == "__main__":
                         snapshot_mode='last_every_gap',
 
                         log_dir=variant['log_dir']
-
                         )
