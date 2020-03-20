@@ -115,7 +115,7 @@ class ReplayBuffer(object):
         return batch
 
     def num_steps_can_sample(self):
-        return self._size200
+        return self._size
 
     def get_diagnostics(self):
         return OrderedDict([
