@@ -9,15 +9,15 @@ def running_mean(x, N):
     return np.convolve(x, np.ones((N,)), mode='same') / divider
 
 
-dir = '../data/data_remote/dim_25/'
-envs = ['humanoid'] #, 'cartpole', 'mountain', 'riverswim'
-settings = ['oac', 'sac', 'g-oac', 'g-oac-ensemble', 'p-oac', 'p-oac-ensemble'] #, ,  'oac',
+dir = './data/'
+envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
+settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
           'trainer/QF mean', 'trainer/QF std',
           'exploration/Returns Max', 'remote_evaluation/Returns Max',
-          'trainer/QF Unordered', 'trainer/QF target Undordered']  # 'trainer/QF std 2']
+          'trainer/Policy mu Mean', 'trainer/Policy log std Mean']  # 'trainer/QF std 2']
 field_to_label = {
     'remote_evaluation/Average Returns': 'offline return',
     'exploration/Average Returns': 'online return',
@@ -27,7 +27,9 @@ field_to_label = {
     'trainer/QF Unordered': 'Q Unordered samples',
     'trainer/QF target Undordered': 'Q Target Unordered samples',
     'exploration/Returns Max': 'online Max Return',
-    'remote_evaluation/Returns Max': 'offline Max Return'
+    'remote_evaluation/Returns Max': 'offline Max Return',
+    'trainer/Policy mu Mean': 'policy mu',
+    'trainer/Policy log std Mean': 'policy std'
 }
 separate = False
 count = 0
@@ -42,12 +44,14 @@ for env in envs:
         for s, setting in enumerate(settings):
             path = dir + env + '/' + setting + '/*/progress.csv'
             paths = glob.glob(path)
+            print(path, paths)
             min_rows = np.inf
             results = []
             final_results = []
             for j, p in enumerate(paths):
                 try:
                     data = pd.read_csv(p, usecols=[field])
+                    #print(data)
                 except:
                     break
                 res = np.array(data[field])
@@ -59,10 +63,12 @@ for env in envs:
                         min_rows = len(res)
                     results.append(res)
             if not separate and len(results) > 0:
+                print(len(results))
                 for i, _ in enumerate(paths):
                     final_results.append(results[i][:min_rows])
                 data = np.stack(final_results, axis=0)
                 n = data.shape[0]
+                #print(data)
                 mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
                 # mean = running_mean(mean, subsample)

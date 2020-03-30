@@ -35,7 +35,6 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             deterministic=False,
     ):
         super().__init__()
-
         """
         The class state which should not mutate
         """
@@ -108,7 +107,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
-                deterministic_pol=True
+                deterministic_pol=self.trainer.deterministic
             )
 
             for _ in range(self.num_train_loops_per_epoch):
@@ -232,7 +231,9 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         gt.stamp('logging')
 
     def to(self, device):
+        print(self.trainer.networks)
         for net in self.trainer.networks:
+            print(net)
             net.to(device)
 
 

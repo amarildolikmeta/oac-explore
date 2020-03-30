@@ -53,7 +53,7 @@ def get_git_infos(dirs):
             except git.exc.InvalidGitRepositoryError as e:
                 print("Not a valid git repo: {}".format(directory))
     except ImportError:
-        git_infos = None
+        git_infos = []
     return git_infos
 
 
