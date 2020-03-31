@@ -6,10 +6,9 @@ Algorithm-specific networks should go else-where.
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
-
 import utils.pytorch_util as ptu
 from utils.core import eval_np
-
+import numpy as np
 
 def identity(x):
     return x
@@ -52,7 +51,10 @@ class Mlp(nn.Module):
         if bias is None:
             self.last_fc.bias.data.uniform_(-init_w, init_w)
         else:
-            self.last_fc.bias.data.fill_(bias)
+            if isinstance(bias, np.ndarray):
+                self.last_fc.bias.data = ptu.from_numpy(bias.astype(np.float32))
+            else:
+                self.last_fc.bias.data.fill_(bias)
 
     def forward(self, input, return_preactivations=False):
         h = input
@@ -62,7 +64,12 @@ class Mlp(nn.Module):
         preactivation = self.last_fc(h)
         output = self.output_activation(preactivation)
         if self.positive:
-            output = torch.exp(output)
+            if isinstance(self.positive, list):
+                for i, v in enumerate(self.positive):
+                    if v:
+                        output[:, i] = torch.exp(output[:, i])
+            else:
+                output = torch.exp(output)
         if return_preactivations:
             return output, preactivation
         else:

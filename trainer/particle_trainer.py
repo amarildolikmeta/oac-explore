@@ -30,7 +30,8 @@ class ParticleTrainer(SACTrainer):
             q_min=0,
             q_max=100,
             ensemble=False,
-            n_policies=1
+            n_policies=1,
+            share_layers=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -54,6 +55,11 @@ class ParticleTrainer(SACTrainer):
             if quantiles[p] > delta:
                 self.delta_index = p - 1
                 break
+        initial_values = np.linspace(q_min, q_max, n_estimators)
+        self.share_layers = share_layers
+        self.num_particles = n_estimators
+        if share_layers:
+            n_estimators = 1
         self.q_min = q_min
         self.q_max = q_max
         self.delta = delta
@@ -61,13 +67,20 @@ class ParticleTrainer(SACTrainer):
         self.qfs = []
         self.qf_optimizers = []
         self.tfs = []
-        initial_values = np.linspace(self.q_min, self.q_max, self.n_estimators)
-        for i in range(n_estimators):
-            self.qfs.append(q_producer(bias=initial_values[i]))
-            self.tfs.append(q_producer(bias=initial_values[i]))
-            self.qf_optimizers.append(optimizer_class(
-                self.qfs[i].parameters(),
-                lr=qf_lr,))
+        if share_layers:
+            for i in range(n_estimators):
+                self.qfs.append(q_producer(bias=initial_values))
+                self.tfs.append(q_producer(bias=initial_values))
+                self.qf_optimizers.append(optimizer_class(
+                    self.qfs[i].parameters(),
+                    lr=qf_lr, ))
+        else:
+            for i in range(n_estimators):
+                self.qfs.append(q_producer(bias=initial_values[i]))
+                self.tfs.append(q_producer(bias=initial_values[i]))
+                self.qf_optimizers.append(optimizer_class(
+                    self.qfs[i].parameters(),
+                    lr=qf_lr,))
         self.ensemble = ensemble
         self.n_policies = n_policies
         if ensemble:
@@ -92,6 +105,8 @@ class ParticleTrainer(SACTrainer):
 
         delta_index = self.delta_index
         qs = torch.stack(qs, dim=0)
+        if self.share_layers:
+            qs = qs.permute(2,1,0)
         sorted_qs = torch.sort(qs, dim=0)[0]
         upper_bound = sorted_qs[delta_index]
         return upper_bound
@@ -113,6 +128,8 @@ class ParticleTrainer(SACTrainer):
             q_preds.append(self.qfs[i](obs, actions))
 
         qs = torch.stack(q_preds, dim=0)
+        if self.share_layers:
+            qs = qs.permute(2, 1, 0)
         sorted_qs, qs_indexes = torch.sort(qs, dim=0)
         new_next_actions, _, _, new_log_pi, *_ = self.policy(
             obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
@@ -121,6 +138,8 @@ class ParticleTrainer(SACTrainer):
         num_current_out_of_order = torch.sum(torch.squeeze(qs_indexes) != normal_order)
         target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
+        if self.share_layers:
+            target_qs = target_qs.permute(2,1,0)
         target_qs_sorted, target_qs_indexes = torch.sort(target_qs, dim=0)
         num_target_out_of_order = torch.sum(torch.squeeze(target_qs_indexes) != normal_order)
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
@@ -133,13 +152,22 @@ class ParticleTrainer(SACTrainer):
         ## Do the inverse ordering to give each head the correct targets wrt
         # the specific quantile they represent for each sample in the batch
         targets = torch.gather(q_target, 0, qs_indexes)
-        for i in range(len(self.qfs)):
-            q_loss = self.qf_criterion(qs[i], targets[i].detach())
-            qf_losses.append(q_loss)
-            qf_loss += q_loss
-            self.qf_optimizers[i].zero_grad()
-            q_loss.backward(retain_graph=True)
-            self.qf_optimizers[i].step()
+        if self.share_layers:
+            for i in range(self.num_particles):
+                q_loss = self.qf_criterion(qs[i], targets[i].detach())
+                qf_losses.append(q_loss)
+                qf_loss += q_loss
+            self.qf_optimizers[0].zero_grad()
+            qf_loss.backward(retain_graph=True)
+            self.qf_optimizers[0].step()
+        else:
+            for i in range(self.num_particles):
+                q_loss = self.qf_criterion(qs[i], targets[i].detach())
+                qf_losses.append(q_loss)
+                qf_loss += q_loss
+                self.qf_optimizers[i].zero_grad()
+                q_loss.backward(retain_graph=True)
+                self.qf_optimizers[i].step()
 
         """
         Policy and Alpha Loss
@@ -150,10 +178,12 @@ class ParticleTrainer(SACTrainer):
                     obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
                 )
 
-                qs = [q(obs, new_obs_actions) for q in self.qfs]
+                pi_qs = [q(obs, new_obs_actions) for q in self.qfs]
                 delta_index = self.delta_index
-                qs = torch.stack(qs, dim=0)
-                sorted_qs = torch.sort(qs, dim=0)[0]
+                pi_qs = torch.stack(pi_qs, dim=0)
+                if self.share_layers:
+                    pi_qs = pi_qs.permute(2, 1, 0)
+                sorted_qs = torch.sort(pi_qs, dim=0)[0]
                 upper_bound = sorted_qs[delta_index]
 
                 ##upper_bound (in some way)
@@ -167,11 +197,13 @@ class ParticleTrainer(SACTrainer):
                 obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
             )
 
-            qs = [q(obs, new_obs_actions) for q in self.qfs]
+            pi_qs = [q(obs, new_obs_actions) for q in self.qfs]
 
             delta_index = self.delta_index
-            qs = torch.stack(qs, dim=0)
-            sorted_qs = torch.sort(qs, dim=0)[0]
+            pi_qs = torch.stack(pi_qs, dim=0)
+            if self.share_layers:
+                pi_qs = pi_qs.permute(2, 1, 0)
+            sorted_qs = torch.sort(pi_qs, dim=0)[0]
 
             # q_new_actions = torch.min(qs, dim=0)[0]
             upper_bound = sorted_qs[delta_index]
@@ -206,15 +238,15 @@ class ParticleTrainer(SACTrainer):
             self.eval_statistics['QF target Undordered'] = ptu.get_numpy(num_target_out_of_order).mean()
 
             policy_loss = (upper_bound).mean()
-            for i in range(len(self.qfs)):
+            for i in range(self.num_particles):
                 self.eval_statistics['QF' + str(i) + ' Loss'] = np.mean(ptu.get_numpy(qf_losses[i]))
                 self.eval_statistics.update(create_stats_ordered_dict(
                     'Q' + str(i) + 'Predictions',
-                    ptu.get_numpy(q_preds[i]),
+                    ptu.get_numpy(qs[i]),
                 ))
                 self.eval_statistics.update(create_stats_ordered_dict(
                     'Q' + str(i) + 'Targets',
-                    ptu.get_numpy(q_target[i]),
+                    ptu.get_numpy(qs[i]),
                 ))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
                 policy_loss
@@ -272,7 +304,7 @@ class ParticleTrainer(SACTrainer):
         target_qfs_state_dicts = ss['target_qfs_state_dicts']
         for i in range(len(qfs_state_dicts)):
 
-            self.qfs[1].load_state_dict(qfs_state_dicts[i])
+            self.qfs[i].load_state_dict(qfs_state_dicts[i])
             self.qf_optimizers[i].load_state_dict(qfs_optims_state_dicts[i])
             self.tfs[i].load_state_dict(target_qfs_state_dicts[i])
 

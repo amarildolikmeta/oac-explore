@@ -10,7 +10,7 @@ from replay_buffer import ReplayBuffer
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
 from tqdm import trange
 
-import ray
+#import ray
 import torch
 import numpy as np
 import random

@@ -17,7 +17,7 @@ from trainer.gaussian_trainer import GaussianTrainer
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
-import ray
+#import ray
 import logging
 # ray.init(
 #     # If true, then output from all of the worker processes on all nodes will be directed to the driver.
@@ -99,7 +99,7 @@ def experiment(variant, prev_exp_state=None):
 
     if variant['share_layers']:
         output_size = n_estimators
-        n_estimators = 1
+        #n_estimators = 1
     else:
         output_size = 1
     q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
@@ -323,7 +323,8 @@ if __name__ == "__main__":
     variant['trainer_kwargs']['discount'] = args.gamma
     variant['ensemble'] = args.ensemble
     variant['n_policies'] = args.n_policies if args.ensemble else 1
-
+    if args.alg in ['p-oac', 'g-oac']:
+        variant['trainer_kwargs']['share_layers'] = args.share_layers
     variant['alg'] = args.alg
     variant['dim'] = args.dim
     variant['pac'] = args.pac

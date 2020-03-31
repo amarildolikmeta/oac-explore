@@ -5,7 +5,7 @@ from utils.env_utils import env_producer
 from utils.eval_util import create_stats_ordered_dict
 from utils.rng import get_global_pkg_rng_state, set_global_pkg_rng_state
 import numpy as np
-import ray
+#import ray
 from optimistic_exploration import get_optimistic_exploration_action
 
 
@@ -119,7 +119,7 @@ class MdpPathCollector(object):
         self._num_paths_total = ss['_num_paths_total']
 
 
-@ray.remote(num_cpus=1)
+#@ray.remote(num_cpus=1)
 class RemoteMdpPathCollector(MdpPathCollector):
 
     def __init__(self,
