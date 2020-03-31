@@ -244,6 +244,7 @@ def get_cmd_args():
     parser.add_argument('--num_expl_steps_per_train_loop',
                         type=int, default=2000)
     parser.add_argument('--num_trains_per_train_loop', type=int, default=1000)
+    parser.add_argument('--num_train_loops_per_epoch', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -311,6 +312,7 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_eval_steps_per_epoch'] = args.num_eval_steps_per_epoch
     variant['algorithm_kwargs']['min_num_steps_before_training'] = args.min_num_steps_before_training
     variant['algorithm_kwargs']['batch_size'] = args.batch_size
+    variant['algorithm_kwargs']['num_train_loops_per_epoch'] = args.num_train_loops_per_epoch
 
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
