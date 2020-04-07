@@ -41,14 +41,15 @@ def get_current_branch(dir):
 def get_policy_producer(obs_dim, action_dim, hidden_sizes):
 
     def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1,
-                    approximator=None):
+                    approximator=None, share_layers=False):
         if ensemble:
             policy = EnsemblePolicy(approximator=approximator,
                                     hidden_sizes=hidden_sizes,
                                     obs_dim=obs_dim,
                                     action_dim=action_dim,
                                     n_policies=n_policies,
-                                    bias=bias)
+                                    bias=bias,
+                                    share_layers=share_layers)
         else:
             policy = TanhGaussianPolicy(
                 obs_dim=obs_dim,
@@ -233,6 +234,8 @@ def get_cmd_args():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--r_min', type=float, default=0.)
     parser.add_argument('--r_max', type=float, default=1.)
+    parser.add_argument('--r_mellow_max', type=float, default=1.)
+    parser.add_argument('--mellow_max', action="store_true")
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -325,6 +328,9 @@ if __name__ == "__main__":
     variant['n_policies'] = args.n_policies if args.ensemble else 1
     if args.alg in ['p-oac', 'g-oac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
+        variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
+        variant['trainer_kwargs']['mellow_max'] = args.mellow_max
+
     variant['alg'] = args.alg
     variant['dim'] = args.dim
     variant['pac'] = args.pac

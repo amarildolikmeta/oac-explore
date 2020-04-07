@@ -197,7 +197,7 @@ class TanhGaussianPolicy(Mlp):
                     action = tanh_normal.sample()
         if log_prob is None:
             log_prob = torch.zeros_like(action)
-            pre_tanh_value = torch.zeros_like(action)
+            pre_tanh_value = mean
         return (
             action, mean, log_std, log_prob, std,
             pre_tanh_value,
@@ -269,11 +269,19 @@ class EnsemblePolicy:
             init_w=1e-3,
             bias=None,
             n_policies=1,
+            share_layers=False,
             **kwargs
     ):
+        self.share_layers = share_layers
         self.policies = []
-        for i in range(n_policies):
-            self.policies.append(TanhGaussianPolicy(hidden_sizes, obs_dim, action_dim, std, init_w, bias[i],
+        self.n_policies = n_policies
+        if share_layers:
+            action_dim = action_dim * self.n_policies
+            self.policies.append(TanhGaussianPolicy(hidden_sizes, obs_dim, action_dim, std, init_w, bias,
+                                                    **kwargs))
+        else:
+            for i in range(n_policies):
+                self.policies.append(TanhGaussianPolicy(hidden_sizes, obs_dim, action_dim, std, init_w, bias[i],
                                                     **kwargs))
         self.approximator = approximator
 
@@ -289,13 +297,24 @@ class EnsemblePolicy:
         actions = []
         values = []
         results = []
-        for i in range(len(self.policies)):
-            res = self.policies[i].forward(obs, reparameterize, deterministic, return_log_prob)
-            actions.append(res[0])
-            values.append(self.approximator.predict(obs, res[0]))
-            results.append(torch.stack([res[j] for j in range(len(res))], dim=0))
+        if self.share_layers:
+            results = self.policies[0].forward(obs, reparameterize, deterministic, return_log_prob)
+            actions = results[0]
+            actions = actions.reshape(actions.shape[0], self.n_policies, -1)
+            for i in range(self.n_policies):
+                values.append(self.approximator.predict(obs, actions[:, i]))
+            results = torch.stack([results[j] for j in range(len(results))], dim=-1)
+            results = results.permute(0, 2, 1)
+            results = results.reshape(results.shape[0], results.shape[1], self.n_policies, -1)
+            results = results.permute(0, 2, 1, -1)
+        else:
+            for i in range(len(self.policies)):
+                res = self.policies[i].forward(obs, reparameterize, deterministic, return_log_prob)
+                actions.append(res[0])
+                values.append(self.approximator.predict(obs, res[0]))
+                results.append(torch.stack([res[j] for j in range(len(res))], dim=0))
+            results = torch.stack(results, dim=0).permute([2, 0, 1, -1])
         values = torch.stack(values, dim=0)
-        results = torch.stack(results, dim=0).permute([2, 0, 1, -1])
         argmax = torch.max(values, dim=0)[1]
         max_res = results[torch.arange(results.shape[0]), argmax[:, 0]].permute([1, 0, -1])
 
@@ -305,16 +324,25 @@ class EnsemblePolicy:
         actions = []
         values = []
         max_value = -np.inf
-        max_index = -1
         max_res = None
-        for i in range(len(self.policies)):
-            action = self.get_actions(obs_np[None], deterministic=deterministic, index=i)
-            actions.append(action)
-            values.append(self.approximator.predict([obs_np], action)[0])
-            if values[i] > max_value:
-                max_value = values[i]
-                max_index = i
-                max_res = action
+        if self.share_layers:
+            action = self.get_actions(obs_np[None], deterministic=deterministic)
+            action = action.reshape(action.shape[0], self.n_policies, -1)
+            for i in range(self.n_policies):
+                values.append(self.approximator.predict([obs_np], action[:,i])[0])
+                if values[i] > max_value:
+                    max_value = values[i]
+                    max_res = action[:,i]
+        else:
+            for i in range(len(self.policies)):
+                action = self.get_actions(obs_np[None], deterministic=deterministic, index=i)
+                actions.append(action)
+                values.append(self.approximator.predict([obs_np], action)[0])
+                if values[i] > max_value:
+                    max_value = values[i]
+                    max_res = action
+        if max_res is None:
+            print("What?")
         return max_res[0, :], {}
 
     def get_actions(self, obs_np, deterministic=False, index=0):

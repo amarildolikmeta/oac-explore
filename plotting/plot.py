@@ -9,9 +9,9 @@ def running_mean(x, N):
     return np.convolve(x, np.ones((N,)), mode='same') / divider
 
 
-dir = '../data/data_remote/dim_25/'
-envs = ['humanoid','cartpole', 'mountain', 'riverswim'] #,
-settings = ['oac', 'sac', 'g-oac', 'g-oac-ensemble', 'p-oac', 'p-oac-ensemble'] #, ,  'oac',
+dir = '../data/'
+envs = ['humanoid'] #,,'cartpole', 'mountain', 'riverswim'
+settings = [ 'oac', 'sac','p-oac', 'p-oac-multi-policy' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
@@ -33,7 +33,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 10
+subsample = 1
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -42,6 +42,8 @@ for env in envs:
         for s, setting in enumerate(settings):
             path = dir + env + '/' + setting + '/*/progress.csv'
             paths = glob.glob(path)
+            # print("Path:", path)
+            # print("Paths:", paths)
             min_rows = np.inf
             results = []
             final_results = []
@@ -50,7 +52,10 @@ for env in envs:
                     data = pd.read_csv(p, usecols=[field])
                 except:
                     break
-                res = np.array(data[field], dtype=np.float64)
+                try:
+                    res = np.array(data[field], dtype=np.float64)
+                except:
+                    print("What")
                 if separate:
                     plt.plot(res, label=setting + '-' + str(j), color=colors[count % len(colors)])
                     count += 1
