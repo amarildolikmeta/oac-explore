@@ -90,9 +90,14 @@ class ParticleTrainer(SACTrainer):
         self.ensemble = ensemble
         self.n_policies = n_policies
         if ensemble:
-            initial_actions = np.linspace(-1., 1., n_policies)
-            initial_actions[0] += 5e-2
-            initial_actions[-1] -= 5e-2
+            if action_space.shape[0] > 1:
+                initial_actions = np.random.uniform(low=action_space.low,
+                                                    high=action_space.high,
+                                                    size=(n_policies, action_space.shape[0])).flatten()
+            else:
+                initial_actions = np.linspace(-1., 1., n_policies)
+                initial_actions[0] += 5e-2
+                initial_actions[-1] -= 5e-2
             self.policy = policy_producer(bias=initial_actions, ensemble=ensemble, n_policies=n_policies,
                                           approximator=self, share_layers=share_layers)
             self.policy_optimizers = []
