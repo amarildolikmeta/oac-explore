@@ -11,7 +11,7 @@ def running_mean(x, N):
 
 dir = '../data/'
 envs = ['humanoid'] #,,'cartpole', 'mountain', 'riverswim'
-settings = [ 'oac', 'sac','p-oac', 'p-oac-multi-policy' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+settings = [ 'oac', 'sac','p-oac', 'p-oac-multi-policy', 'p-oac-multi-shared' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
