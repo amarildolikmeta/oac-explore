@@ -151,7 +151,6 @@ class GaussianTrainer(SACTrainer):
                 stds = self.std_2(obs, action)
             else:
                 stds = self.std(obs, action)
-
         upper_bound = qs + self.standard_bound * stds
         return upper_bound
 

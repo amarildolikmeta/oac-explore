@@ -195,6 +195,9 @@ def experiment(variant, prev_exp_state=None):
     elif variant['alg'] == 'g-tsac':
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
+        q_posterior_producer = None
+        if variant['share_layers']:
+            q_posterior_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=1)
         trainer = GaussianTrainerTS(
             policy_producer,
             q_producer,
@@ -204,11 +207,15 @@ def experiment(variant, prev_exp_state=None):
             q_max=q_max,
             action_space=expl_env.action_space,
             n_components=variant['n_components'],
+            q_posterior_producer=q_posterior_producer,
             **variant['trainer_kwargs']
         )
     elif variant['alg'] == 'p-tsac':
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
+        q_posterior_producer = None
+        if variant['share_layers']:
+            q_posterior_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=1)
         trainer = ParticleTrainerTS(
             policy_producer,
             q_producer,
@@ -218,6 +225,7 @@ def experiment(variant, prev_exp_state=None):
             q_max=q_max,
             action_space=expl_env.action_space,
             n_components=variant['n_components'],
+            q_posterior_producer=q_posterior_producer,
             **variant['trainer_kwargs']
         )
     else:
@@ -288,7 +296,12 @@ def get_cmd_args():
     parser.add_argument('--mellow_max', action="store_true")
 
     parser.add_argument('--n_components', type=int, default=1)
-
+    parser.add_argument('--snapshot_gap', type=int, default=100)
+    parser.add_argument('--snapshot_mode', type=str, default='last_every_gap', choices=['last_every_gap',
+                                                                                        'all',
+                                                                                        'last',
+                                                                                        "gap",
+                                                                                        'gap_and_last'])
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
@@ -363,7 +376,7 @@ if __name__ == "__main__":
     variant['num_layers'] = args.num_layers
     variant['layer_size'] = args.layer_size
     variant['share_layers'] = args.share_layers
-    variant['n_estimators'] = args.n_estimators if args.alg == 'p-oac' else 2
+    variant['n_estimators'] = args.n_estimators if args.alg  in ['p-oac', 'p-tsac'] else 2
     variant['replay_buffer_size'] = int(args.replay_buffer_size)
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain) if args.epochs <= 0 else args.epochs
@@ -385,10 +398,11 @@ if __name__ == "__main__":
     variant['ensemble'] = args.ensemble
     variant['n_policies'] = args.n_policies if args.ensemble else 1
     variant['n_components'] = args.n_components
-    if args.alg in ['p-oac', 'g-oac']:
+    if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
-        variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
-        variant['trainer_kwargs']['mellow_max'] = args.mellow_max
+        if args.alg in ['p-oac', 'g-oac']:
+            variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
+            variant['trainer_kwargs']['mellow_max'] = args.mellow_max
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim
@@ -414,8 +428,8 @@ if __name__ == "__main__":
                         gpu_id=gpu_id,
 
                         # Save the params every snapshot_gap and override previously saved result
-                        snapshot_gap=100,
-                        snapshot_mode='last_every_gap',
+                        snapshot_gap=args.snapshot_gap,
+                        snapshot_mode=args.snapshot_mode,
 
                         log_dir=variant['log_dir']
                         )

@@ -34,7 +34,9 @@ class GaussianTrainerTS(SACTrainer):
             deterministic=False,
             q_min=0,
             q_max=100,
-            n_components=1
+            n_components=1,
+            share_layers=False,
+            q_posterior_producer=None,
     ):
         #print('before', n_components)
         super().__init__(policy_producer,
@@ -55,7 +57,7 @@ class GaussianTrainerTS(SACTrainer):
         self.q_min = q_min
         self.q_max = q_max
         self.standard_bound = standard_bound = norm.ppf(delta, loc=0, scale=1)
-
+        self.share_layers = share_layers
         mean = (q_max + q_min) / 2
         std = (q_max - q_min) / np.sqrt(12)
         log_std = np.log(std)
@@ -64,21 +66,31 @@ class GaussianTrainerTS(SACTrainer):
         self.qfs = []
         self.qf_optimizers = []
         self.tfs = []
-        self.q = q_producer(bias=mean)
-        self.q_target = q_producer(bias=mean)
-        self.q_optimizer = optimizer_class(
+        if q_posterior_producer is None:
+            q_posterior_producer = q_producer
+        if share_layers:
+            self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
+            self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
+            self.q_optimizer = optimizer_class(
+                    self.q.parameters(),
+                    lr=qf_lr,)
+            self.qfs = [self.q]
+            self.tfs = [self.q_target]
+        else:
+            self.q = q_producer(bias=mean)
+            self.q_target = q_producer(bias=mean)
+            self.q_optimizer = optimizer_class(
                 self.q.parameters(),
-                lr=qf_lr,)
+                lr=qf_lr, )
+            self.std = q_producer(bias=log_std, positive=True)
+            self.std_target = q_producer(bias=log_std, positive=True)
+            self.std_optimizer = optimizer_class(
+                self.std.parameters(),
+                lr=std_lr, )
+            self.qfs = [self.q, self.std]
+            self.tfs = [self.q_target, self.std_target]
 
-        self.std = q_producer(bias=log_std, positive=True)
-        self.std_target = q_producer(bias=log_std, positive=True)
-        self.std_optimizer = optimizer_class(
-            self.std.parameters(),
-            lr=std_lr, )
-        self.qfs = [self.q, self.std]
-        self.tfs = [self.q_target, self.std_target]
-
-        self.q_posterior = q_producer()
+        self.q_posterior = q_posterior_producer()
         self.q_posterior_optimizer = optimizer_class(
             self.q_posterior.parameters(),
             lr=qf_posterior_lr, )
@@ -110,8 +122,11 @@ class GaussianTrainerTS(SACTrainer):
         obs = torch_ify(obs)
         action = torch_ify(action)
         qs = self.q(obs, action)
-        stds = self.std(obs, action)
-
+        if self.share_layers:
+            stds = qs[:, 1].unsqueeze(-1)
+            qs = qs[:, 0].unsqueeze(-1)
+        else:
+            stds = self.std(obs, action)
         return qs, stds
 
     def train_from_torch(self, batch):
@@ -137,21 +152,39 @@ class GaussianTrainerTS(SACTrainer):
 
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_q
-        q_target = self.reward_scale * rewards + \
-                   (1. - terminals) * self.discount * target_q_values
-        q_loss = self.qf_criterion(q_preds, q_target.detach())
-        self.q_optimizer.zero_grad()
-        q_loss.backward(retain_graph=True)
-        self.q_optimizer.step()
+        if self.share_layers:
+            std_preds = q_preds[:, 1].unsqueeze(-1)
+            q_preds = q_preds[:, 0].unsqueeze(-1)
+            target_stds = target_q_values[:, 1].unsqueeze(-1)
+            target_q_values = target_q_values[:, 0].unsqueeze(-1)
+            std_target = (1. - terminals) * self.discount * target_stds
+            q_target = self.reward_scale * rewards + \
+                       (1. - terminals) * self.discount * target_q_values
+            loss = 0
+            q_loss = self.qf_criterion(q_preds, q_target.detach())
+            loss += q_loss
+            std_loss = self.qf_criterion(std_preds, std_target.detach())
+            loss += std_loss
+            self.q_optimizer.zero_grad()
+            loss.backward(retain_graph=True)
+            self.q_optimizer.step()
+        else:
+            # q network loss
+            q_target = self.reward_scale * rewards + \
+                       (1. - terminals) * self.discount * target_q_values
+            q_loss = self.qf_criterion(q_preds, q_target.detach())
+            self.q_optimizer.zero_grad()
+            q_loss.backward(retain_graph=True)
+            self.q_optimizer.step()
+            # std network loss
+            std_preds = self.std(obs, actions)
+            target_stds = self.std_target(next_obs, new_next_actions)
+            std_target = (1. - terminals) * self.discount * target_stds
 
-        std_preds = self.std(obs, actions)
-        target_stds = self.std_target(next_obs, new_next_actions)
-        std_target = (1. - terminals) * self.discount * target_stds
-
-        std_loss = self.qf_criterion(std_preds, std_target.detach())
-        self.std_optimizer.zero_grad()
-        std_loss.backward(retain_graph=True)
-        self.std_optimizer.step()
+            std_loss = self.qf_criterion(std_preds, std_target.detach())
+            self.std_optimizer.zero_grad()
+            std_loss.backward(retain_graph=True)
+            self.std_optimizer.step()
 
         """
         Posterior update
@@ -197,9 +230,10 @@ class GaussianTrainerTS(SACTrainer):
             ptu.soft_update_from_to(
                 self.q, self.q_target, self.soft_target_tau
             )
-            ptu.soft_update_from_to(
-                self.std, self.std_target, self.soft_target_tau
-            )
+            if not self.share_layers:
+                ptu.soft_update_from_to(
+                    self.std, self.std_target, self.soft_target_tau
+                )
 
         """
         Save some statistics for eval
@@ -266,10 +300,10 @@ class GaussianTrainerTS(SACTrainer):
         qfs_state_dicts.append(self.q.state_dict())
         qfs_optims_state_dicts.append(self.q_optimizer.state_dict())
         target_qfs_state_dicts.append(self.q_target.state_dict())
-
-        qfs_state_dicts.append(self.std.state_dict())
-        qfs_optims_state_dicts.append(self.std_optimizer.state_dict())
-        target_qfs_state_dicts.append(self.std_target.state_dict())
+        if not self.share_layers:
+            qfs_state_dicts.append(self.std.state_dict())
+            qfs_optims_state_dicts.append(self.std_optimizer.state_dict())
+            target_qfs_state_dicts.append(self.std_target.state_dict())
 
         data["qfs_state_dicts"] = qfs_state_dicts
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
@@ -290,10 +324,10 @@ class GaussianTrainerTS(SACTrainer):
         self.q.load_state_dict(qfs_state_dicts[0])
         self.q_optimizer.load_state_dict(qfs_optims_state_dicts[0])
         self.q_target.load_state_dict(target_qfs_state_dicts[0])
-
-        self.std.load_state_dict(qfs_state_dicts[1])
-        self.std_optimizer.load_state_dict(qfs_optims_state_dicts[1])
-        self.std_target.load_state_dict(target_qfs_state_dicts[1])
+        if not self.share_layers:
+            self.std.load_state_dict(qfs_state_dicts[1])
+            self.std_optimizer.load_state_dict(qfs_optims_state_dicts[1])
+            self.std_target.load_state_dict(target_qfs_state_dicts[1])
 
         log_alpha, alpha_optim_state_dict = ss['log_alpha'], ss['alpha_optim_state_dict']
 

@@ -122,7 +122,7 @@ class ParticleTrainer(SACTrainer):
         delta_index = self.delta_index
         qs = torch.stack(qs, dim=0)
         if self.share_layers:
-            qs = qs.permute(2,1,0)
+            qs = qs.permute(2, 1, 0)
         sorted_qs = torch.sort(qs, dim=0)[0]
         upper_bound = sorted_qs[delta_index]
         return upper_bound
@@ -312,7 +312,7 @@ class ParticleTrainer(SACTrainer):
                 ))
                 self.eval_statistics.update(create_stats_ordered_dict(
                     'Q' + str(i) + 'Targets',
-                    ptu.get_numpy(qs[i]),
+                    ptu.get_numpy(target_qs[i]),
                 ))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
                 policy_loss
