@@ -133,6 +133,7 @@ def domain_to_env(name):
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
         from envs.river_swim_continuous import RiverSwimContinuous
+        from envs.lqg1d import LQG1D
         return {
             'invertedpendulum': InvertedPendulumEnv,
             'humanoid': HumanoidEnv,
@@ -142,17 +143,20 @@ def domain_to_env(name):
             'walker2d': Walker2dEnv,
             'cartpole': Cartpole,
             'mountain': MountainCar,
-            'riverswim': RiverSwimContinuous
+            'riverswim': RiverSwimContinuous,
+            'lqg': LQG1D,
         }[name]
     except:
         from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         from envs.river_swim_continuous import RiverSwimContinuous
+        from envs.lqg1d import LQG1D
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
         return {
             'cartpole': Cartpole,
             'mountain': MountainCar,
-            'riverswim': RiverSwimContinuous
+            'riverswim': RiverSwimContinuous,
+            'lqg': LQG1D,
         }[name]
 
 
@@ -167,7 +171,8 @@ def domain_to_epoch(name):
         'bipedal': 2000,
         'cartpole': 300,
         'mountain': 200,
-        'riverswim': 200
+        'riverswim': 200,
+        'lqg': 200,
     }[name]
 
 
