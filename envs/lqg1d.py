@@ -79,8 +79,8 @@ class LQG1D(gym.Env):
             np.dot(u, np.dot(self.R, u))
         assert cost >= 0
 
-        #normalized_cost = cost / self.max_cost
-        normalized_cost = cost
+        normalized_cost = cost / self.max_cost
+        #normalized_cost = cost
         self.state = np.array(xn.ravel(), ndmin=1)
         if self.discrete_reward:
             if abs(self.state[0]) <= 2 and abs(u) <= 2:

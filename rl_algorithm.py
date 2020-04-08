@@ -238,9 +238,9 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         gt.stamp('logging')
 
     def to(self, device):
-        print(self.trainer.networks)
+        #print(self.trainer.networks)
         for net in self.trainer.networks:
-            print(net)
+            #print(net)
             net.to(device)
 
 

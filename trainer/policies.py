@@ -233,7 +233,7 @@ class TanhGaussianPolicy(Mlp):
             bias=bias,
             **kwargs
         )
-        print('PARAMETERS BEFORE', list(self.parameters()))
+        #print('PARAMETERS BEFORE', list(self.parameters()))
         self.log_std = None
         self.std = std
         if std is None:
@@ -247,7 +247,7 @@ class TanhGaussianPolicy(Mlp):
             self.log_std = np.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
         self.policies_list = [self]
-        print('PARAMETERS AFTER', list(self.parameters()))
+        #print('PARAMETERS AFTER', list(self.parameters()))
 
     def get_action(self, obs_np, deterministic=False):
         actions = self.get_actions(obs_np[None], deterministic=deterministic)
