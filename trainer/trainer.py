@@ -265,7 +265,6 @@ class SACTrainer(object):
     @property
     def networks(self) -> Iterable[nn.Module]:
         # return [self.policy] + self.qfs + self.tfs
-
         return [
             self.policy,
             self.qf1,

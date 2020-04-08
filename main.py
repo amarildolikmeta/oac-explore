@@ -10,10 +10,12 @@ from utils.env_utils import NormalizedBoxEnv, domain_to_epoch, env_producer
 from utils.rng import set_global_pkg_rng_state
 from launcher_util import run_experiment_here
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
-from trainer.policies import TanhGaussianPolicy, MakeDeterministic, EnsemblePolicy
+from trainer.policies import TanhGaussianPolicy, MakeDeterministic, EnsemblePolicy, TanhGaussianMixturePolicy
 from trainer.trainer import SACTrainer
 from trainer.particle_trainer import ParticleTrainer
 from trainer.gaussian_trainer import GaussianTrainer
+from trainer.gaussian_trainer_ts import GaussianTrainerTS
+from trainer.particle_trainer_ts import ParticleTrainerTS
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
@@ -40,7 +42,7 @@ def get_current_branch(dir):
 
 def get_policy_producer(obs_dim, action_dim, hidden_sizes):
 
-    def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1,
+    def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1, n_components=1,
                     approximator=None, share_layers=False):
         if ensemble:
             policy = EnsemblePolicy(approximator=approximator,
@@ -51,12 +53,32 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes):
                                     bias=bias,
                                     share_layers=share_layers)
         else:
-            policy = TanhGaussianPolicy(
+
+            if n_components == 1:
+                policy = TanhGaussianPolicy(
+                    obs_dim=obs_dim,
+                    action_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    bias=bias
+                )
+
+            else:
+                policy = TanhGaussianMixturePolicy(
+                    obs_dim=obs_dim,
+                    action_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    bias=bias,
+                    n_components=n_components
+                )
+            '''
+            policy = TanhGaussianMixturePolicy(
                 obs_dim=obs_dim,
                 action_dim=action_dim,
                 hidden_sizes=hidden_sizes,
-                bias=bias
+                bias=bias,
+                n_components=n_components
             )
+            '''
             if deterministic:
                 policy = MakeDeterministic(policy)
 
@@ -170,6 +192,34 @@ def experiment(variant, prev_exp_state=None):
             n_policies=variant['n_policies'],
             **variant['trainer_kwargs']
         )
+    elif variant['alg'] == 'g-tsac':
+        q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
+        q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
+        trainer = GaussianTrainerTS(
+            policy_producer,
+            q_producer,
+            n_estimators=n_estimators,
+            delta=variant['delta'],
+            q_min=q_min,
+            q_max=q_max,
+            action_space=expl_env.action_space,
+            n_components=variant['n_components'],
+            **variant['trainer_kwargs']
+        )
+    elif variant['alg'] == 'p-tsac':
+        q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
+        q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
+        trainer = ParticleTrainerTS(
+            policy_producer,
+            q_producer,
+            n_estimators=n_estimators,
+            delta=variant['delta'],
+            q_min=q_min,
+            q_max=q_max,
+            action_space=expl_env.action_space,
+            n_components=variant['n_components'],
+            **variant['trainer_kwargs']
+        )
     else:
         raise ValueError("Algorithm no implemented:" + variant['alg'])
 
@@ -215,9 +265,9 @@ def get_cmd_args():
     parser.add_argument('--dim', type=int, default=25)
     parser.add_argument('--pac', action="store_true")
     parser.add_argument('--ensemble', action="store_true")
-    parser.add_argument('--n_policies', type=int, default=5)
+    parser.add_argument('--n_policies', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac',])
+    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac', 'g-tsac', 'p-tsac'])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--load_dir', type=str, default='')
@@ -226,7 +276,7 @@ def get_cmd_args():
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--log_dir', type=str, default='./data/')
-    parser.add_argument('--max_path_length', type=int, default=200)
+    parser.add_argument('--max_path_length', type=int, default=100)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
     parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
     parser.add_argument('--epochs', type=int, default=200)
@@ -236,6 +286,8 @@ def get_cmd_args():
     parser.add_argument('--r_max', type=float, default=1.)
     parser.add_argument('--r_mellow_max', type=float, default=1.)
     parser.add_argument('--mellow_max', action="store_true")
+
+    parser.add_argument('--n_components', type=int, default=1)
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -260,7 +312,13 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
     if args.load_dir != '':
         log_dir = args.load_dir
     else:
-        log_dir = args.log_dir + args.domain + '/' + args.alg + '/' + str(start_time) + '/'
+        if args.n_policies > 1:
+            el = str(args.n_policies)
+        elif args.n_components > 1:
+            el = str(args.n_components)
+        else:
+            el = ''
+        log_dir = args.log_dir + args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
 
@@ -319,13 +377,14 @@ if __name__ == "__main__":
 
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
-                                                                                                      'g-oac']
+                                                                                                      'g-oac', 'g-tsac', 'p-tsac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
 
     variant['trainer_kwargs']['discount'] = args.gamma
     variant['ensemble'] = args.ensemble
     variant['n_policies'] = args.n_policies if args.ensemble else 1
+    variant['n_components'] = args.n_components
     if args.alg in ['p-oac', 'g-oac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
         variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
