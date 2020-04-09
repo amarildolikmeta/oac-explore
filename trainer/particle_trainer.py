@@ -169,6 +169,10 @@ class ParticleTrainer(SACTrainer):
 
         q_target = self.reward_scale * rewards + \
                    (1. - terminals) * discount * target_q_values
+        if self.counts:
+            q_target_2 = self.reward_scale * rewards + \
+                   (1. - terminals) * self.discount * target_q_values
+            q_target = q_target - torch.mean(q_target, dim=0) + torch.mean(q_target_2, dim=0)
         qf_losses = []
         qf_loss = 0
 

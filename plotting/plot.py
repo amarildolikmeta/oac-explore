@@ -9,9 +9,10 @@ def running_mean(x, N):
     return np.convolve(x, np.ones((N,)), mode='same') / divider
 
 
-dir = '../data/'
-envs = ['humanoid'] #,,'cartpole', 'mountain', 'riverswim'
+dir = '../data/data_remote/'
+envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
 settings = [ 'oac', 'sac','p-oac', 'p-oac-multi-policy', 'p-oac-multi-shared' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+settings = [ 'p-oac_', 'g-oac_', 'p-oac_counts', 'g-oac_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
