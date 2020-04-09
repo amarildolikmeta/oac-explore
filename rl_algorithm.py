@@ -107,7 +107,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
-                deterministic_pol=self.trainer.deterministic
+                deterministic_pol=True
             )
 
             for _ in range(self.num_train_loops_per_epoch):
@@ -117,6 +117,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
                     optimistic_exploration=self.optimistic_exp_hp['should_use'],
+                    deterministic_pol=self.trainer.deterministic,
                     optimistic_exploration_kwargs=dict(
                         policy=policy,
                         qfs=self.trainer.qfs,
