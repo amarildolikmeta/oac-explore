@@ -37,7 +37,8 @@ class GaussianTrainerTS(SACTrainer):
             n_components=1,
             share_layers=False,
             q_posterior_producer=None,
-            counts=False
+            counts=False,
+            mean_update=False
     ):
         #print('before', n_components)
         super().__init__(policy_producer,
@@ -68,6 +69,7 @@ class GaussianTrainerTS(SACTrainer):
         self.qf_optimizers = []
         self.tfs = []
         self.counts = counts
+        self.mean_update = mean_update
         if q_posterior_producer is None:
             q_posterior_producer = q_producer
         if share_layers:
@@ -106,6 +108,12 @@ class GaussianTrainerTS(SACTrainer):
             lr=policy_lr,
         )
 
+        if mean_update:
+            self.target_policy = policy_producer()
+            self.target_policy_optimizer = optimizer_class(
+                    self.target_policy.parameters(),
+                    lr=policy_lr)
+
         #self.policy = policy_producer()
 
         self.normal = Normal(0, 1)
@@ -115,7 +123,9 @@ class GaussianTrainerTS(SACTrainer):
     @property
     def networks(self) -> Iterable[nn.Module]:
         # return [self.policy] + self.qfs + self.tfs
-        return self.policy.policies_list + self.qfs + self.tfs + [self.q_posterior]
+        networks = self.policy.policies_list + self.qfs + self.tfs + [self.q_posterior]
+        if self.mean_update:
+            networks += [self.target_policy]
 
 
     def predict(self, obs, action):
@@ -151,10 +161,15 @@ class GaussianTrainerTS(SACTrainer):
 
         # Make sure policy accounts for squashing
         # functions like tanh correctly!
+        if self.mean_update:
+            new_next_actions, _, _, new_log_pi, *_ = self.target_policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+        else:
+            new_next_actions, _, _, new_log_pi, *_ = self.policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
 
-        new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-        )
         target_q = self.q_target(next_obs, new_next_actions)
 
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
@@ -229,6 +244,25 @@ class GaussianTrainerTS(SACTrainer):
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()
+
+        if self.mean_update:
+            """
+                Update_target_policy
+            """
+            target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
+                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+
+            target_pi_qs = self.q(obs, target_actions)
+            if self.share_layers:
+                target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
+            mean_q = target_pi_qs
+            ##upper_bound (in some way)
+            target_policy_loss = (-mean_q).mean()
+            self.target_policy_optimizer.zero_grad()
+            target_policy_loss.backward()
+            self.target_policy_optimizer.step()
+
 
         """
         Soft Updates
@@ -315,6 +349,10 @@ class GaussianTrainerTS(SACTrainer):
         data["qfs_state_dicts"] = qfs_state_dicts
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
         data["target_qfs_state_dicts"] = target_qfs_state_dicts
+
+        if self.mean_update:
+            data["target_policy_state_dict"] = self.target_policy.state_dict()
+            data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
         return data
 
     def restore_from_snapshot(self, ss):
@@ -344,3 +382,7 @@ class GaussianTrainerTS(SACTrainer):
         self.eval_statistics = ss['eval_statistics']
         self._n_train_steps_total = ss['_n_train_steps_total']
         self._need_to_update_eval_statistic = ss['_need_to_update_eval_statistics']
+
+        if self.mean_update:
+            self.target_policy.load_state_dict(ss["target_policy_state_dict"])
+            self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])

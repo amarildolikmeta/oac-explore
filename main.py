@@ -126,8 +126,7 @@ def experiment(variant, prev_exp_state=None):
     else:
         output_size = 1
     q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
-    policy_producer = get_policy_producer(
-        obs_dim, action_dim, hidden_sizes=[M] * N)
+    policy_producer = get_policy_producer(obs_dim, action_dim, hidden_sizes=[M] * N)
     # Finished getting producer
 
     remote_eval_path_collector = MdpPathCollector(
@@ -142,6 +141,7 @@ def experiment(variant, prev_exp_state=None):
     expl_path_collector = MdpPathCollector(
         expl_env,
     )
+
     if variant['trainer_kwargs']["counts"] and variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         replay_buffer = ReplayBufferCount(
             variant['replay_buffer_size'],
@@ -289,6 +289,7 @@ def get_cmd_args():
     parser.add_argument('--layer_size', type=int, default=16)
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
+    parser.add_argument('--mean_update', action="store_true")
     parser.add_argument('--counts', action="store_true", help="count the samples in replay buffer")
     parser.add_argument('--log_dir', type=str, default='./data/')
     parser.add_argument('--max_path_length', type=int, default=100)
@@ -338,7 +339,8 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
             el = str(args.n_components)
         else:
             el = ''
-        log_dir = args.log_dir + ('counts/' if args.counts else '' )+ \
+        log_dir = args.log_dir + ('mean_update_' if args.mean_update else '') + ('counts/' if args.counts else '') + \
+                  ('/' if args.mean_update and not args.counts else '' ) +  \
                   args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
@@ -408,6 +410,7 @@ if __name__ == "__main__":
     variant['n_components'] = args.n_components
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
+        variant['trainer_kwargs']['mean_update'] = args.share_layers
         variant['trainer_kwargs']['counts'] = args.counts
         if args.alg in ['p-oac', 'g-oac']:
             variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max

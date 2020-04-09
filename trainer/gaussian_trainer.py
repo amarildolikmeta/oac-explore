@@ -39,7 +39,8 @@ class GaussianTrainer(SACTrainer):
             r_mellow_max=1.,
             b_mellow_max=None,
             mellow_max=False,
-            counts=False
+            counts=False,
+            mean_update=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -72,6 +73,7 @@ class GaussianTrainer(SACTrainer):
         self.b = b_mellow_max
         self.mellow_max = mellow_max
         self.counts = counts
+        self.mean_update = mean_update
         if share_layers:
             self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
@@ -138,6 +140,12 @@ class GaussianTrainer(SACTrainer):
                     self.policy_optimizers.append(optimizer_class(
                         self.policy.policies[i].parameters(),
                         lr=policy_lr))
+        if mean_update:
+            self.target_policy = policy_producer()
+            self.target_policy_optimizer = optimizer_class(
+                    self.target_policy.parameters(),
+                    lr=policy_lr)
+
 
     def predict(self, obs, action):
         obs = np.array(obs)
@@ -177,10 +185,15 @@ class GaussianTrainer(SACTrainer):
 
         # Make sure policy accounts for squashing
         # functions like tanh correctly!
+        if self.mean_update:
+            new_next_actions, _, _, new_log_pi, *_ = self.target_policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+        else:
+            new_next_actions, _, _, new_log_pi, *_ = self.policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
 
-        new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-        )
         target_q = self.q_target(next_obs, new_next_actions)
 
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
@@ -334,6 +347,23 @@ class GaussianTrainer(SACTrainer):
             policy_loss.backward()
             self.policy_optimizer.step()
 
+        if self.mean_update:
+            """
+                Update_target_policy
+            """
+            target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
+                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+
+            target_pi_qs = self.q(obs, target_actions)
+            if self.share_layers:
+                target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
+            mean_q = target_pi_qs
+            ##upper_bound (in some way)
+            target_policy_loss = (-mean_q).mean()
+            self.target_policy_optimizer.zero_grad()
+            target_policy_loss.backward()
+            self.target_policy_optimizer.step()
         """
         Soft Updates
         """
@@ -397,9 +427,12 @@ class GaussianTrainer(SACTrainer):
     @property
     def networks(self) -> Iterable[nn.Module]:
         if self.ensemble:
-            return self.policy.policies + self.qfs + self.tfs
+            networks = self.policy.policies + self.qfs + self.tfs
         else:
-            return [self.policy] + self.qfs + self.tfs
+            networks = [self.policy] + self.qfs + self.tfs
+        if self.mean_update:
+            networks += [self.target_policy]
+        return networks
 
     def get_snapshot(self):
         data = dict(
@@ -428,6 +461,10 @@ class GaussianTrainer(SACTrainer):
         data["qfs_state_dicts"] = qfs_state_dicts
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
         data["target_qfs_state_dicts"] = target_qfs_state_dicts
+
+        if self.mean_update:
+            data["target_policy_state_dict"] = self.target_policy.state_dict()
+            data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
         return data
 
     def restore_from_snapshot(self, ss):
@@ -457,3 +494,7 @@ class GaussianTrainer(SACTrainer):
         self.eval_statistics = ss['eval_statistics']
         self._n_train_steps_total = ss['_n_train_steps_total']
         self._need_to_update_eval_statistic = ss['_need_to_update_eval_statistics']
+
+        if self.mean_update:
+            self.target_policy.load_state_dict(ss["target_policy_state_dict"])
+            self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])

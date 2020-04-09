@@ -34,7 +34,8 @@ class ParticleTrainerTS(SACTrainer):
             n_components=1,
             share_layers=False,
             q_posterior_producer=None,
-            counts=False
+            counts=False,
+            mean_update=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -72,6 +73,7 @@ class ParticleTrainerTS(SACTrainer):
         self.qf_optimizers = []
         self.tfs = []
         self.counts = counts
+        self.mean_update = mean_update
         initial_values = np.linspace(self.q_min, self.q_max, self.n_estimators)
         if share_layers:
             for i in range(n_estimators):
@@ -105,10 +107,18 @@ class ParticleTrainerTS(SACTrainer):
         self.particle_weights = torch.ones(self.num_particles) / self.num_particles
         self.categorical = Categorical(self.particle_weights)
 
+        if mean_update:
+            self.target_policy = policy_producer()
+            self.target_policy_optimizer = optimizer_class(
+                    self.target_policy.parameters(),
+                    lr=policy_lr)
+
     @property
     def networks(self) -> Iterable[nn.Module]:
         # return [self.policy] + self.qfs + self.tfs
-        return self.policy.policies_list + self.qfs + self.tfs + [self.q_posterior]
+        networks = self.policy.policies_list + self.qfs + self.tfs + [self.q_posterior]
+        if self.mean_update:
+            networks += [self.target_policy]
 
     def predict(self, obs, action):
         obs = np.array(obs)
@@ -147,9 +157,14 @@ class ParticleTrainerTS(SACTrainer):
         if self.share_layers:
             qs = qs.permute(2, 1, 0)
         sorted_qs, qs_indexes = torch.sort(qs, dim=0)
-        new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-        )
+        if self.mean_update:
+            new_next_actions, _, _, new_log_pi, *_ = self.target_policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+        else:
+            new_next_actions, _, _, new_log_pi, *_ = self.policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
         normal_order = torch.stack([torch.ones(qs.shape[1]) * i for i in range(qs.shape[0])], dim=0)
         num_current_out_of_order = torch.sum(torch.squeeze(qs_indexes) != normal_order)
         target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
@@ -233,6 +248,24 @@ class ParticleTrainerTS(SACTrainer):
                 ptu.soft_update_from_to(
                     self.qfs[i], self.tfs[i], self.soft_target_tau
                 )
+        if self.mean_update:
+            """
+                Update_target_policy
+            """
+            target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
+                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+
+            target_pi_qs = [q(obs, target_actions) for q in self.qfs]
+            target_pi_qs = torch.stack(target_pi_qs, dim=0)
+            if self.share_layers:
+                target_pi_qs = target_pi_qs.permute(2, 1, 0)
+            mean_q = torch.mean(target_pi_qs, dim=0)
+            ##upper_bound (in some way)
+            target_policy_loss = (-mean_q).mean()
+            self.target_policy_optimizer.zero_grad()
+            target_policy_loss.backward()
+            self.target_policy_optimizer.step()
 
         """
         Save some statistics for eval
@@ -297,6 +330,11 @@ class ParticleTrainerTS(SACTrainer):
         data["qfs_state_dicts"] = qfs_state_dicts
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
         data["target_qfs_state_dicts"] = target_qfs_state_dicts
+
+        if self.mean_update:
+            data["target_policy_state_dict"] = self.target_policy.state_dict()
+            data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
+
         return data
 
     def restore_from_snapshot(self, ss):
@@ -319,3 +357,7 @@ class ParticleTrainerTS(SACTrainer):
         self.eval_statistics = ss['eval_statistics']
         self._n_train_steps_total = ss['_n_train_steps_total']
         self._need_to_update_eval_statistic = ss['_need_to_update_eval_statistics']
+
+        if self.mean_update:
+            self.target_policy.load_state_dict(ss["target_policy_state_dict"])
+            self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])
