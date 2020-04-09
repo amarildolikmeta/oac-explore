@@ -34,6 +34,7 @@ class ParticleTrainerTS(SACTrainer):
             n_components=1,
             share_layers=False,
             q_posterior_producer=None,
+            counts=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -70,6 +71,7 @@ class ParticleTrainerTS(SACTrainer):
         self.qfs = []
         self.qf_optimizers = []
         self.tfs = []
+        self.counts = counts
         initial_values = np.linspace(self.q_min, self.q_max, self.n_estimators)
         if share_layers:
             for i in range(n_estimators):
@@ -128,7 +130,12 @@ class ParticleTrainerTS(SACTrainer):
         actions = batch['actions']
         next_obs = batch['next_observations']
         n = len(obs)
-
+        if self.counts:
+            counts = batch['counts']
+            discount = torch.ones_like(counts)
+            discount[counts == 0] = self.discount
+        else:
+            discount = self.discount
         """
         QF Loss
         """
@@ -154,7 +161,7 @@ class ParticleTrainerTS(SACTrainer):
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_qs_sorted
         q_target = self.reward_scale * rewards + \
-                   (1. - terminals) * self.discount * target_q_values
+                   (1. - terminals) * discount * target_q_values
         qf_losses = []
         qf_loss = 0
 

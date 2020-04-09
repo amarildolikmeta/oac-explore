@@ -141,3 +141,50 @@ class ReplayBuffer(object):
         for key in ss.keys():
             assert hasattr(self, key)
             setattr(self, key, ss[key])
+
+
+class ReplayBufferCount(ReplayBuffer):
+
+    def __init__(
+        self,
+        max_replay_buffer_size,
+        ob_space,
+        action_space,
+    ):
+        """
+        The class state which should not mutate
+        """
+        super().__init__(max_replay_buffer_size, ob_space, action_space,)
+        self._counts = np.zeros((max_replay_buffer_size, 1))
+
+    def add_sample(self, observation, action, reward, next_observation,
+                   terminal, env_info, **kwargs):
+
+        assert not isinstance(self._action_space, Discrete)
+
+        self._observations[self._top] = observation
+        self._actions[self._top] = action
+        self._rewards[self._top] = reward
+        self._terminals[self._top] = terminal
+        self._next_obs[self._top] = next_observation
+        self._counts[self._top] = 0
+        self._advance()
+
+    def random_batch(self, batch_size):
+        indices = np.random.randint(0, self._size, batch_size)
+        batch = dict(
+            observations=self._observations[indices],
+            actions=self._actions[indices],
+            rewards=self._rewards[indices],
+            terminals=self._terminals[indices],
+            next_observations=self._next_obs[indices],
+            counts=np.copy(self._counts[indices]),
+        )
+        self._counts[indices] += 1
+        return batch
+
+    def get_snapshot(self):
+
+        ss = super().get_snapshot()
+        ss['_counts'] = self._counts
+        return ss

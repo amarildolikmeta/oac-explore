@@ -35,6 +35,7 @@ class ParticleTrainer(SACTrainer):
             r_mellow_max=1.,
             b_mellow_max=None,
             mellow_max=False,
+            counts=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -72,7 +73,8 @@ class ParticleTrainer(SACTrainer):
         self.tfs = []
         self.r_mellow_max = r_mellow_max
         self.b = b_mellow_max
-        self.mellow_max=mellow_max
+        self.mellow_max = mellow_max
+        self.counts = counts
         if share_layers:
             for i in range(n_estimators):
                 self.qfs.append(q_producer(bias=initial_values))
@@ -133,8 +135,12 @@ class ParticleTrainer(SACTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-
-
+        if self.counts:
+            counts = batch['counts']
+            discount = torch.ones_like(counts)
+            discount[counts == 0] = self.discount
+        else:
+            discount = self.discount
 
         """
         QF Loss
@@ -160,8 +166,9 @@ class ParticleTrainer(SACTrainer):
         num_target_out_of_order = torch.sum(torch.squeeze(target_qs_indexes) != normal_order)
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_qs_sorted
+
         q_target = self.reward_scale * rewards + \
-                   (1. - terminals) * self.discount * target_q_values
+                   (1. - terminals) * discount * target_q_values
         qf_losses = []
         qf_loss = 0
 

@@ -4,7 +4,7 @@ import argparse
 import torch
 import time
 import utils.pytorch_util as ptu
-from replay_buffer import ReplayBuffer
+from replay_buffer import ReplayBuffer, ReplayBufferCount
 from replay_buffer_no_resampling import ReplayBufferNoResampling
 from utils.env_utils import NormalizedBoxEnv, domain_to_epoch, env_producer
 from utils.rng import set_global_pkg_rng_state
@@ -142,7 +142,13 @@ def experiment(variant, prev_exp_state=None):
     expl_path_collector = MdpPathCollector(
         expl_env,
     )
-    if variant["no_resampling"] and variant['alg'] in ['p-oac', 'g-oac']:
+    if variant['trainer_kwargs']["counts"] and variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
+        replay_buffer = ReplayBufferCount(
+            variant['replay_buffer_size'],
+            ob_space=expl_env.observation_space,
+            action_space=expl_env.action_space
+        )
+    elif variant["no_resampling"] and variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         replay_buffer = ReplayBufferNoResampling(
             variant['replay_buffer_size'],
             ob_space=expl_env.observation_space,
@@ -283,6 +289,7 @@ def get_cmd_args():
     parser.add_argument('--layer_size', type=int, default=16)
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
+    parser.add_argument('--counts', action="store_true", help="count the samples in replay buffer")
     parser.add_argument('--log_dir', type=str, default='./data/')
     parser.add_argument('--max_path_length', type=int, default=100)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
@@ -331,7 +338,8 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
             el = str(args.n_components)
         else:
             el = ''
-        log_dir = args.log_dir + args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
+        log_dir = args.log_dir + ('counts/' if args.counts else '' )+ \
+                  args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
 
@@ -400,6 +408,7 @@ if __name__ == "__main__":
     variant['n_components'] = args.n_components
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
+        variant['trainer_kwargs']['counts'] = args.counts
         if args.alg in ['p-oac', 'g-oac']:
             variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max

@@ -39,6 +39,7 @@ class GaussianTrainer(SACTrainer):
             r_mellow_max=1.,
             b_mellow_max=None,
             mellow_max=False,
+            counts=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -70,6 +71,7 @@ class GaussianTrainer(SACTrainer):
         self.r_mellow_max = r_mellow_max
         self.b = b_mellow_max
         self.mellow_max = mellow_max
+        self.counts = counts
         if share_layers:
             self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
@@ -160,7 +162,12 @@ class GaussianTrainer(SACTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-
+        if self.counts:
+            counts = batch['counts']
+            discount = torch.ones_like(counts)
+            discount[counts == 0] = self.discount
+        else:
+            discount = self.discount
 
 
         """
@@ -183,9 +190,9 @@ class GaussianTrainer(SACTrainer):
             q_preds = q_preds[:, 0].unsqueeze(-1)
             target_stds = target_q_values[:, 1].unsqueeze(-1)
             target_q_values = target_q_values[:, 0].unsqueeze(-1)
-            std_target = (1. - terminals) * self.discount * target_stds
+            std_target = (1. - terminals) * discount * target_stds
             q_target = self.reward_scale * rewards + \
-                       (1. - terminals) * self.discount * target_q_values
+                       (1. - terminals) * discount * target_q_values
             loss = 0
             q_loss = self.qf_criterion(q_preds, q_target.detach())
             loss += q_loss
@@ -197,7 +204,7 @@ class GaussianTrainer(SACTrainer):
         else:
             # q network loss
             q_target = self.reward_scale * rewards + \
-                       (1. - terminals) * self.discount * target_q_values
+                       (1. - terminals) * discount * target_q_values
             q_loss = self.qf_criterion(q_preds, q_target.detach())
             self.q_optimizer.zero_grad()
             q_loss.backward(retain_graph=True)
@@ -208,8 +215,8 @@ class GaussianTrainer(SACTrainer):
                 std_preds_2 = self.std_2(obs, actions)
                 target_stds_2 = self.std_2_target(next_obs, new_next_actions)
 
-                std_target = (1. - terminals) * self.discount * target_stds_2
-                std_target_2 = (1. - terminals) * self.discount * self.sigma_b / np.sqrt(
+                std_target = (1. - terminals) * discount * target_stds_2
+                std_target_2 = (1. - terminals) * discount * self.sigma_b / np.sqrt(
                     (self._n_train_steps_total + 1))
 
                 std_loss = self.qf_criterion(std_preds, std_target.detach())
@@ -223,7 +230,7 @@ class GaussianTrainer(SACTrainer):
             else:
                 std_preds = self.std(obs, actions)
                 target_stds = self.std_target(next_obs, new_next_actions)
-                std_target = (1. - terminals) * self.discount * target_stds
+                std_target = (1. - terminals) * discount * target_stds
 
                 std_loss = self.qf_criterion(std_preds, std_target.detach())
                 self.std_optimizer.zero_grad()
