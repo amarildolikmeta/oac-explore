@@ -6,8 +6,8 @@ from trainer.trainer import SACTrainer
 import utils.pytorch_util as ptu
 from utils.eval_util import create_stats_ordered_dict
 from typing import Iterable
-from utils.core import  torch_ify
-from utils.misc import mellow_max
+from utils.core import torch_ify
+from utils.misc import mellow_max, reorder_and_match
 
 class ParticleTrainer(SACTrainer):
     def __init__(
@@ -193,9 +193,11 @@ class ParticleTrainer(SACTrainer):
 
         ## Do the inverse ordering to give each head the correct targets wrt
         # the specific quantile they represent for each sample in the batch
-        #targets = torch.gather(q_target, 0, qs_indexes)
-        targets = q_target
-        qs = sorted_qs
+
+        targets_1 = reorder_and_match(q_target, qs_indexes)
+        targets = targets_1
+        #assert (torch.gather(targets_1, 0, qs_indexes) - targets).isclose(torch.Tensor(0)).all()
+        #qs = sorted_qs
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())

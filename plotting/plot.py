@@ -10,9 +10,11 @@ def running_mean(x, N):
 
 
 dir = '../data/data_remote/'
+#dir = '../data/'
 envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-settings = [ 'oac', 'sac','p-oac', 'p-oac-multi-policy', 'p-oac-multi-shared' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
-settings = [ 'p-oac_', 'p-oac_5', 'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+#envs = ['humanoid']
+#settings = ['oac', 'sac','p-oac', 'p-oac-multi-policy', 'p-oac-multi-shared', 'sac_no_entropy' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
@@ -79,13 +81,13 @@ for env in envs:
                 #print(data)
                 mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
-                # mean = running_mean(mean, subsample)
-                # std = running_mean(std, subsample)
-                # x = list(range(len(mean)))
-                indexes = [i * subsample for i in range(len(mean) // subsample)]
-                mean = mean[indexes]
-                std = std[indexes]
-                x = indexes
+                mean = running_mean(mean, subsample)
+                std = running_mean(std, subsample)
+                x = list(range(len(mean)))
+                #indexes = [i * subsample for i in range(len(mean) // subsample)]
+                # mean = mean[indexes]
+                # std = std[indexes]
+                #x = indexes
 
                 if f == 0:
                     label = setting
@@ -102,7 +104,7 @@ for env in envs:
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         col += 1
         plot_count += 1
-    fig.legend(loc='lower center', ncol=len(fields))
+    fig.legend(loc='lower center', ncol=len(fields)//2)
     plt.show()
 # oac = pd.read_csv('oac/1581679951.0551817/progress.csv')
 # w_oac = pd.read_csv('../data/riverswim/w-oac/1581679961.4996805/progress.csv')
