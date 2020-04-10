@@ -173,7 +173,7 @@ class ParticleTrainer(SACTrainer):
         target_qs = [q(next_obs, new_next_actions) for q in self.tfs]
         target_qs = torch.stack(target_qs, dim=0)
         if self.share_layers:
-            target_qs = target_qs.permute(2,1,0)
+            target_qs = target_qs.permute(2, 1, 0)
         target_qs_sorted, target_qs_indexes = torch.sort(target_qs, dim=0)
         num_target_out_of_order = torch.sum(torch.squeeze(target_qs_indexes) != normal_order)
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
@@ -185,12 +185,17 @@ class ParticleTrainer(SACTrainer):
             q_target_2 = self.reward_scale * rewards + \
                    (1. - terminals) * self.discount * target_q_values
             q_target = q_target - torch.mean(q_target, dim=0) + torch.mean(q_target_2, dim=0)
+            if not ((q_target_2.mean(dim=0) - q_target.mean(dim=0)).isclose(torch.Tensor(0))).all():
+                print("What")
+            #assert ((q_target_2.std(dim=0) - q_target.std(dim=0)) == 0).all()
         qf_losses = []
         qf_loss = 0
 
         ## Do the inverse ordering to give each head the correct targets wrt
         # the specific quantile they represent for each sample in the batch
-        targets = torch.gather(q_target, 0, qs_indexes)
+        #targets = torch.gather(q_target, 0, qs_indexes)
+        targets = q_target
+        qs = sorted_qs
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())
