@@ -9,12 +9,13 @@ def running_mean(x, N):
     return np.convolve(x, np.ones((N,)), mode='same') / divider
 
 
-dir = '../data/data_remote/'
-#dir = '../data/'
-envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-#envs = ['humanoid']
-#settings = ['oac', 'sac','p-oac', 'p-oac-multi-policy', 'p-oac-multi-shared', 'sac_no_entropy' ] #, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
-settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+#dir = '../data/data_remote/'
+dir = '../data/'
+#envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
+envs = ['humanoid']
+settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts'  ]
+#settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+#settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
@@ -66,7 +67,14 @@ for env in envs:
                 except:
                     print("What")
                 if separate:
-                    plt.plot(res, label=setting + '-' + str(j), color=colors[count % len(colors)])
+                    if f == 0:
+                        label = setting  + '-' + str(j)
+                    else:
+                        label = None
+                    mean = running_mean(res, subsample)
+                    x = list(range(len(mean)))
+                    ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[j])
+                    #plt.plot(res, label=setting + '-' + str(j), color=colors[count % len(colors)])
                     count += 1
                 else:
                     if len(res) < min_rows:

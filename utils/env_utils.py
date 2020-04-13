@@ -133,6 +133,7 @@ def domain_to_env(name):
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
         from envs.river_swim_continuous import RiverSwimContinuous
+        from envs.point import PointEnv
         from envs.lqg1d import LQG1D
         return {
             'invertedpendulum': InvertedPendulumEnv,
@@ -144,6 +145,7 @@ def domain_to_env(name):
             'cartpole': Cartpole,
             'mountain': MountainCar,
             'riverswim': RiverSwimContinuous,
+            'point': PointEnv,
             'lqg': LQG1D,
         }[name]
     except:
