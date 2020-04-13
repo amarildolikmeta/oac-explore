@@ -142,7 +142,7 @@ def experiment(variant, prev_exp_state=None):
         expl_env,
     )
 
-    if variant['trainer_kwargs']["counts"] and variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
+    if variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and variant['trainer_kwargs']["counts"]:
         replay_buffer = ReplayBufferCount(
             variant['replay_buffer_size'],
             ob_space=expl_env.observation_space,
