@@ -110,6 +110,8 @@ def experiment(variant, prev_exp_state=None):
     env_args = {}
     if domain in ['riverswim']:
         env_args['dim'] = variant['dim']
+    if domain in ['point']:
+        env_args['difficulty'] = variant['difficulty']
     expl_env = env_producer(domain, seed, **env_args)
     eval_env = env_producer(domain, seed * 10 + 1, **env_args)
     obs_dim = expl_env.observation_space.low.size
@@ -310,6 +312,10 @@ def get_cmd_args():
                                                                                         'last',
                                                                                         "gap",
                                                                                         'gap_and_last'])
+    parser.add_argument('--difficulty', type=str, default='hard', choices=['easy',
+                                                                            'medium',
+                                                                            'hard',
+                                                                            "harder"])
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
@@ -418,6 +424,7 @@ if __name__ == "__main__":
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim
+    variant['difficulty'] = args.difficulty
     variant['pac'] = args.pac
     variant['no_resampling'] = args.no_resampling
     variant['r_min'] = args.r_min

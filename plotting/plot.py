@@ -108,6 +108,8 @@ for env in envs:
                                          mean + 2 * (std / np.sqrt(n)),
                                  alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
+        if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
+            ax[col // n_col][col % n_col].set_ylim((-10000, 0))
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})

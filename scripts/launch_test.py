@@ -7,13 +7,13 @@ from trainer.trainer import SACTrainer
 import numpy as np
 import torch
 from main import env_producer, get_policy_producer, get_q_producer
-from utils.core import np_ify, torch_ify
-import matplotlib.pyplot as plt
 from utils.pythonplusplus import load_gzip_pickle
+
+
 ts = '1584884279.5007188'
-ts = '1586771528.641106'
+ts = '1586783203.3145502'
 iter = 190
-path = '../data/point/g-oac_/' + ts
+path = '../data/point/oac_/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -23,14 +23,6 @@ r_max = variant['r_max']
 ensemble = variant['ensemble']
 delta = variant['delta']
 n_estimators = variant['n_estimators']
-quantiles = [i * 1. / (n_estimators - 1) for i in range(n_estimators)]
-for p in range(n_estimators):
-    if quantiles[p] == delta:
-        delta_index = p
-        break
-    if quantiles[p] > delta:
-        delta_index = p - 1
-        break
 if seed == 0:
     np.random.seed()
     seed = np.random.randint(0, 1000000)
@@ -47,9 +39,10 @@ action_dim = expl_env.action_space.low.size
 # Get producer function for policy and value functions
 M = variant['layer_size']
 N = variant['num_layers']
-n_estimators = variant['n_estimators']
 
-if variant['share_layers']:
+alg = variant['alg']
+
+if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and  variant['share_layers']:
     output_size = n_estimators
     n_estimators = 1
 else:
@@ -69,18 +62,25 @@ alg_to_trainer = {
 }
 trainer = alg_to_trainer[variant['alg']]
 
-trainer = trainer(
-            policy_producer,
-            q_producer,
-            n_estimators=n_estimators,
-            delta=variant['delta'],
-            q_min=q_min,
-            q_max=q_max,
+kwargs ={ }
+if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
+    n_estimators = variant['n_estimators']
+    kwargs = dict(
+        n_estimators=n_estimators,
+        delta=variant['delta'],
+        q_min=q_min,
+        q_max=q_max,
+        ensemble=variant['ensemble'],
+        n_policies=variant['n_policies'],
+    )
+kwargs.update(dict(
+            policy_producer=policy_producer,
+            q_producer=q_producer,
             action_space=expl_env.action_space,
-            ensemble=variant['ensemble'],
-            n_policies=variant['n_policies'],
-            **variant['trainer_kwargs']
-        )
+        ))
+print(kwargs)
+kwargs.update(variant['trainer_kwargs'])
+trainer = trainer(**kwargs)
 experiment = path + '/params.zip_pkl'
 exp = load_gzip_pickle(experiment)
 trainer.restore_from_snapshot(exp['trainer'])
@@ -90,7 +90,7 @@ for i in range(10):
     done = False
     ret = 0
     t = 0
-    while not done and t < 50:
+    while not done and t < 500:
         expl_env.render()
         a, agent_info = trainer.policy.get_action(s, deterministic=True)
         s, r, done, _ = expl_env.step(a)

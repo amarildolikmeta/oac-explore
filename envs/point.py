@@ -3,9 +3,21 @@ from gym import utils
 from envs.mujoco_env import MujocoEnv
 import math
 
+
+diff_to_path = {
+    'easy': 'point.xml',
+    'medium': 'point_medium.xml',
+    'hard': 'point_hard.xml',
+    'harder': 'point_harder.xml'
+}
+
+
 class PointEnv(MujocoEnv, utils.EzPickle):
-    def __init__(self):
-        MujocoEnv.__init__(self, 'point.xml', 1)
+    def __init__(self, difficulty=None):
+        if difficulty is None:
+            difficulty = 'easy'
+        model = diff_to_path[difficulty]
+        MujocoEnv.__init__(self, model, 1)
         utils.EzPickle.__init__(self)
 
     def step(self, action):
