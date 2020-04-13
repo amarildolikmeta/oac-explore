@@ -5,7 +5,7 @@ import math
 
 class PointEnv(MujocoEnv, utils.EzPickle):
     def __init__(self):
-        MujocoEnv.__init__(self, 'point_harder.xml', 1)
+        MujocoEnv.__init__(self, 'point.xml', 1)
         utils.EzPickle.__init__(self)
 
     def step(self, action):
