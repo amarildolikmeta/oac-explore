@@ -12,8 +12,9 @@ def running_mean(x, N):
 #dir = '../data/data_remote/'
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-envs = ['humanoid']
-settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts'  ]
+envs = ['point']
+#settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts'  ]
+settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', ]
 #settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 #settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 

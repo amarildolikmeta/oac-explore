@@ -152,6 +152,7 @@ def domain_to_env(name):
         from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         from envs.river_swim_continuous import RiverSwimContinuous
+        from envs.point import PointEnv
         from envs.lqg1d import LQG1D
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
         return {
@@ -159,6 +160,7 @@ def domain_to_env(name):
             'mountain': MountainCar,
             'riverswim': RiverSwimContinuous,
             'lqg': LQG1D,
+            'point':PointEnv
         }[name]
 
 
