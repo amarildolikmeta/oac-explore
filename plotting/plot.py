@@ -12,9 +12,10 @@ def running_mean(x, N):
 #dir = '../data/data_remote/'
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-envs = ['point']
+envs = ['point_hard']
 #settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts'  ]
-settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', ]
+#settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', ]
+settings = ['p-oac_']
 #settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 #settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 
@@ -39,11 +40,11 @@ field_to_label = {
     'trainer/Policy mu Mean': 'policy mu',
     'trainer/Policy log std Mean': 'policy std'
 }
-separate = False
+separate = True
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 5
+subsample = 1
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -58,6 +59,7 @@ for env in envs:
             results = []
             final_results = []
             for j, p in enumerate(paths):
+                print(p)
                 try:
                     data = pd.read_csv(p, usecols=[field])
                     #print(data)

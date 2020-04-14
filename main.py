@@ -148,7 +148,8 @@ def experiment(variant, prev_exp_state=None):
         replay_buffer = ReplayBufferCount(
             variant['replay_buffer_size'],
             ob_space=expl_env.observation_space,
-            action_space=expl_env.action_space
+            action_space=expl_env.action_space,
+            priority_sample=variant['priority_sample']
         )
     elif variant["no_resampling"] and variant['alg'] in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         replay_buffer = ReplayBufferNoResampling(
@@ -304,6 +305,7 @@ def get_cmd_args():
     parser.add_argument('--r_max', type=float, default=1.)
     parser.add_argument('--r_mellow_max', type=float, default=1.)
     parser.add_argument('--mellow_max', action="store_true")
+    parser.add_argument('--priority_sample', action="store_true")
 
     parser.add_argument('--n_components', type=int, default=1)
     parser.add_argument('--snapshot_gap', type=int, default=100)
@@ -414,10 +416,12 @@ if __name__ == "__main__":
     variant['ensemble'] = args.ensemble
     variant['n_policies'] = args.n_policies if args.ensemble else 1
     variant['n_components'] = args.n_components
+    variant['priority_sample'] = False
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
         variant['trainer_kwargs']['mean_update'] = args.share_layers
         variant['trainer_kwargs']['counts'] = args.counts
+        variant['priority_sample'] = args.priority_sample
         if args.alg in ['p-oac', 'g-oac']:
             variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max

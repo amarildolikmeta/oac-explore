@@ -23,7 +23,7 @@ class GaussianTrainer(SACTrainer):
             delta=0.95,
             policy_lr=1e-3,
             qf_lr=1e-3,
-            std_lr=5e-5,
+            std_lr=3e-3,
             optimizer_class=optim.Adam,
             soft_target_tau=1e-2,
             target_update_period=1,

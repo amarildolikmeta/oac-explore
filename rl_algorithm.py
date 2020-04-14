@@ -72,11 +72,15 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self._train()
 
     def _train(self):
-        policy = self.trainer.policy
+        if hasattr(self.trainer, 'target_policy'):
+            target_policy = self.trainer.target_policy
+        else:
+            target_policy = self.trainer.policy
+        behavioral_policy = self.trainer.policy
         # Fill the replay buffer to a minimum before training starts
         if self.min_num_steps_before_training > self.replay_buffer.num_steps_can_sample():
             init_expl_paths = self.expl_data_collector.collect_new_paths(
-                policy=policy,
+                policy=behavioral_policy,
                 max_path_length=self.max_path_length,
                 num_steps=self.min_num_steps_before_training,
                 discard_incomplete_paths=False
@@ -103,7 +107,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             #     pol_state_dict=pol_state_dict)
 
             eval_exploration_paths = self.remote_eval_data_collector.collect_new_paths(
-                policy,
+                target_policy,
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
@@ -112,14 +116,14 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
 
             for _ in range(self.num_train_loops_per_epoch):
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
-                    policy,
+                    behavioral_policy,
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
                     optimistic_exploration=self.optimistic_exp_hp['should_use'],
                     deterministic_pol=self.trainer.deterministic,
                     optimistic_exploration_kwargs=dict(
-                        policy=policy,
+                        policy=behavioral_policy,
                         qfs=self.trainer.qfs,
                         hyper_params=self.optimistic_exp_hp
                     )
@@ -140,7 +144,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
 
             self._end_epoch(epoch)
         eval_exploration_paths = self.remote_eval_data_collector.collect_new_paths(
-            policy,
+            target_policy,
             self.max_path_length,
             self.num_eval_steps_per_epoch,
             discard_incomplete_paths=True,

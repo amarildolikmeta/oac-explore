@@ -11,9 +11,9 @@ from utils.pythonplusplus import load_gzip_pickle
 
 
 ts = '1584884279.5007188'
-ts = '1586783203.3145502'
+ts = '1586803712.1245544'
 iter = 190
-path = '../data/point/oac_/' + ts
+path = '../data/point_hard/p-oac_/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -31,6 +31,9 @@ np.random.seed(seed)
 env_args = {}
 if domain in ['riverswim']:
     env_args['dim'] = variant['dim']
+if domain in ['point']:
+    env_args['difficulty'] = variant['difficulty']
+
 expl_env = env_producer(domain, seed, **env_args)
 eval_env = env_producer(domain, seed * 10 + 1, **env_args)
 obs_dim = expl_env.observation_space.low.size
@@ -90,9 +93,12 @@ for i in range(10):
     done = False
     ret = 0
     t = 0
-    while not done and t < 500:
+    while not done and t < 300:
         expl_env.render()
-        a, agent_info = trainer.policy.get_action(s, deterministic=True)
+        if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and variant['trainer_kwargs']['mean_update']:
+            a, agent_info = trainer.target_policy.get_action(s, deterministic=True)
+        else:
+            a, agent_info = trainer.policy.get_action(s, deterministic=True)
         s, r, done, _ = expl_env.step(a)
         t += 1
         ret += r

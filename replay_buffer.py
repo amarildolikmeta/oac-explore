@@ -150,12 +150,14 @@ class ReplayBufferCount(ReplayBuffer):
         max_replay_buffer_size,
         ob_space,
         action_space,
+        priority_sample=False
     ):
         """
         The class state which should not mutate
         """
         super().__init__(max_replay_buffer_size, ob_space, action_space,)
         self._counts = np.zeros((max_replay_buffer_size, 1))
+        self.priority_sample = priority_sample
 
     def add_sample(self, observation, action, reward, next_observation,
                    terminal, env_info, **kwargs):
@@ -171,7 +173,13 @@ class ReplayBufferCount(ReplayBuffer):
         self._advance()
 
     def random_batch(self, batch_size):
-        indices = np.random.randint(0, self._size, batch_size)
+        if self.priority_sample:
+            probs = 1 / (self._counts[:self._size] + 1)
+            probs /= probs.sum()
+
+            indices = np.random.choice(np.arange(self._size), size=batch_size, p=probs[:,0])
+        else:
+            indices = np.random.randint(0, self._size, batch_size)
         batch = dict(
             observations=self._observations[indices],
             actions=self._actions[indices],
