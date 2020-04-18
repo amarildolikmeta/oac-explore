@@ -63,7 +63,7 @@ def np_to_pytorch_batch(np_batch):
 
 
 def optimize_policy(policy,  policy_optimizer, buffer, init_policy, action_space, obj_func,
-                     batch_size=32, num_actions=10, upper_bound=False, iterations=10):
+                    batch_size=32, num_actions=10, upper_bound=False, iterations=50):
     dataset = np.copy(buffer.get_dataset())
     ptu.copy_model_params_from_to(init_policy, policy)
     for it in range(iterations):
