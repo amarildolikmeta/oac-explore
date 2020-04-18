@@ -284,6 +284,7 @@ class TanhGaussianPolicy(Mlp):
         pre_tanh_value = None
         if deterministic:
             action = torch.tanh(mean)
+            pre_tanh_value = mean
         else:
             tanh_normal = TanhNormal(mean, std)
             if return_log_prob:

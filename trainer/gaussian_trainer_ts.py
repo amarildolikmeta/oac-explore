@@ -38,7 +38,8 @@ class GaussianTrainerTS(SACTrainer):
             share_layers=False,
             q_posterior_producer=None,
             counts=False,
-            mean_update=False
+            mean_update=False,
+            global_opt=False
     ):
         #print('before', n_components)
         super().__init__(policy_producer,
@@ -70,6 +71,7 @@ class GaussianTrainerTS(SACTrainer):
         self.tfs = []
         self.counts = counts
         self.mean_update = mean_update
+        self.global_opt = global_opt
         if q_posterior_producer is None:
             q_posterior_producer = q_producer
         if share_layers:

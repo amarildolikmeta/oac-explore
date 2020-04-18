@@ -7,7 +7,7 @@ import utils.pytorch_util as ptu
 from utils.eval_util import create_stats_ordered_dict
 from typing import Iterable
 from scipy.stats import norm
-from utils.core import torch_ify
+from utils.core import torch_ify, optimize_policy
 from utils.misc import mellow_max
 
 
@@ -40,7 +40,8 @@ class GaussianTrainer(SACTrainer):
             b_mellow_max=None,
             mellow_max=False,
             counts=False,
-            mean_update=False
+            mean_update=False,
+            global_opt=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -56,6 +57,7 @@ class GaussianTrainer(SACTrainer):
                          target_entropy=target_entropy,
                          deterministic=deterministic)
 
+        self.action_space = action_space
         self.q_min = q_min
         self.q_max = q_max
         self.standard_bound = standard_bound = norm.ppf(delta, loc=0, scale=1)
@@ -74,12 +76,13 @@ class GaussianTrainer(SACTrainer):
         self.mellow_max = mellow_max
         self.counts = counts
         self.mean_update = mean_update
+        self.global_opt = global_opt
         if share_layers:
             self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_optimizer = optimizer_class(
-                    self.q.parameters(),
-                    lr=qf_lr,)
+                self.q.parameters(),
+                lr=qf_lr, )
             self.qfs = [self.q]
             self.tfs = [self.q_target]
         else:
@@ -140,12 +143,15 @@ class GaussianTrainer(SACTrainer):
                     self.policy_optimizers.append(optimizer_class(
                         self.policy.policies[i].parameters(),
                         lr=policy_lr))
+        elif self.global_opt:
+            self.init_policy = policy_producer()
         if mean_update:
             self.target_policy = policy_producer()
             self.target_policy_optimizer = optimizer_class(
-                    self.target_policy.parameters(),
-                    lr=policy_lr)
-
+                self.target_policy.parameters(),
+                lr=policy_lr)
+            if self.global_opt:
+                self.init_target_policy = policy_producer()
 
     def predict(self, obs, action):
         obs = np.array(obs)
@@ -176,7 +182,6 @@ class GaussianTrainer(SACTrainer):
             discount[counts == 0] = self.discount
         else:
             discount = self.discount
-
 
         """
         QF Loss
@@ -250,7 +255,6 @@ class GaussianTrainer(SACTrainer):
                 std_loss.backward(retain_graph=True)
                 self.std_optimizer.step()
 
-
         """
         Policy and Alpha Loss
         """
@@ -265,10 +269,10 @@ class GaussianTrainer(SACTrainer):
                 log_pi_all = log_pi_all.reshape(new_obs_actions_all.shape[0], self.n_policies, -1)
                 upper_bounds = []
                 for i in range(self.n_policies):
-                    new_obs_actions, policy_mean, policy_log_std, log_pi = new_obs_actions_all[:,i ],\
-                                                                               policy_mean_all[:,i ],\
-                                                                               policy_log_std_all[:,i ],\
-                                                                               log_pi_all[:,i ]
+                    new_obs_actions, policy_mean, policy_log_std, log_pi = new_obs_actions_all[:, i], \
+                                                                           policy_mean_all[:, i], \
+                                                                           policy_log_std_all[:, i], \
+                                                                           log_pi_all[:, i]
                     qs = self.q(obs, new_obs_actions)
                     stds = qs[:, 1].unsqueeze(-1)
                     qs = qs[:, 0].unsqueeze(-1)
@@ -277,8 +281,8 @@ class GaussianTrainer(SACTrainer):
                     ##upper_bound (in some way)
                     policy_loss = (upper_bound).mean()
                     upper_bounds.append(policy_loss * self.r_mellow_max)
-                    #total_loss += torch.exp(self.r_mellow_max * policy_loss)
-                #log exp trick
+                    # total_loss += torch.exp(self.r_mellow_max * policy_loss)
+                # log exp trick
                 if self.mellow_max:
                     mellow_max_loss = mellow_max(upper_bounds, self.r_mellow_max, self.b)
                     # if self.b:
@@ -329,41 +333,53 @@ class GaussianTrainer(SACTrainer):
             new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
                 obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
             )
-
-            qs = self.q(obs, new_obs_actions)
-            if self.share_layers:
-                stds = qs[:, 1].unsqueeze(-1)
-                qs = qs[:, 0].unsqueeze(-1)
+            if self.global_opt:
+                pass
+                # optimize_policy(self.policy, self.policy_optimizer, batch['buffer'],
+                #                 action_space=self.action_space, obj_func=self.obj_func,
+                #                 init_policy=self.init_policy, upper_bound=True)
             else:
-                if self.pac:
-                    stds = self.std_2(obs, new_obs_actions)
-                else:
-                    stds = self.std(obs, new_obs_actions)
-            upper_bound = qs + self.standard_bound * stds
 
-            ##upper_bound (in some way)
-            policy_loss = (-upper_bound).mean()
-            self.policy_optimizer.zero_grad()
-            policy_loss.backward()
-            self.policy_optimizer.step()
+                qs = self.q(obs, new_obs_actions)
+                if self.share_layers:
+                    stds = qs[:, 1].unsqueeze(-1)
+                    qs = qs[:, 0].unsqueeze(-1)
+                else:
+                    if self.pac:
+                        stds = self.std_2(obs, new_obs_actions)
+                    else:
+                        stds = self.std(obs, new_obs_actions)
+                upper_bound = qs + self.standard_bound * stds
+
+                ##upper_bound (in some way)
+                policy_loss = (-upper_bound).mean()
+                self.policy_optimizer.zero_grad()
+                policy_loss.backward()
+                self.policy_optimizer.step()
 
         if self.mean_update:
             """
                 Update_target_policy
             """
-            target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
-                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-            )
+            if self.global_opt:
+                # optimize_policy(self.target_policy, self.target_policy_optimizer, batch['buffer'],
+                #                 action_space=self.action_space, obj_func=self.obj_func,
+                #                 init_policy=self.init_target_policy, upper_bound=False)
+                pass
+            else:
+                target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
+                    obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+                )
 
-            target_pi_qs = self.q(obs, target_actions)
-            if self.share_layers:
-                target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
-            mean_q = target_pi_qs
-            ##upper_bound (in some way)
-            target_policy_loss = (-mean_q).mean()
-            self.target_policy_optimizer.zero_grad()
-            target_policy_loss.backward()
-            self.target_policy_optimizer.step()
+                target_pi_qs = self.q(obs, target_actions)
+                if self.share_layers:
+                    target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
+                mean_q = target_pi_qs
+                ##upper_bound (in some way)
+                target_policy_loss = (-mean_q).mean()
+                self.target_policy_optimizer.zero_grad()
+                target_policy_loss.backward()
+                self.target_policy_optimizer.step()
         """
         Soft Updates
         """
@@ -385,7 +401,6 @@ class GaussianTrainer(SACTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
-            policy_loss = (upper_bound).mean()
 
             self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(q_preds))
             self.eval_statistics['QF std'] = np.mean(ptu.get_numpy(std_preds))
@@ -410,9 +425,12 @@ class GaussianTrainer(SACTrainer):
                 'Q STD Target',
                 ptu.get_numpy(std_target),
             ))
-            self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
-                policy_loss
-            ))
+
+            if not self.global_opt:
+                policy_loss = (upper_bound).mean()
+                self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
+                    policy_loss
+                ))
 
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Policy mu',
@@ -445,7 +463,7 @@ class GaussianTrainer(SACTrainer):
             eval_statistics=self.eval_statistics,
             _n_train_steps_total=self._n_train_steps_total,
             _need_to_update_eval_statistics=self._need_to_update_eval_statistics
-            )
+        )
         qfs_state_dicts = []
         qfs_optims_state_dicts = []
         target_qfs_state_dicts = []
@@ -472,7 +490,6 @@ class GaussianTrainer(SACTrainer):
 
         self.policy.load_state_dict(policy_state_dict)
         self.policy_optimizer.load_state_dict(policy_optim_state_dict)
-
         self.qfs_optimizer = []
 
         qfs_state_dicts, qfs_optims_state_dicts = ss['qfs_state_dicts'], ss['qfs_optims_state_dicts']
@@ -498,3 +515,29 @@ class GaussianTrainer(SACTrainer):
         if self.mean_update:
             self.target_policy.load_state_dict(ss["target_policy_state_dict"])
             self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])
+
+    def obj_func(self, states, actions, upper_bound=False):
+        qs = self.q(states, actions)
+        if self.share_layers:
+            stds = qs[:, 1].unsqueeze(-1)
+            qs = qs[:, 0].unsqueeze(-1)
+        else:
+            if self.pac:
+                stds = self.std_2(states, actions)
+            else:
+                stds = self.std(states, actions)
+        if upper_bound:
+            obj = qs + self.standard_bound * stds
+        else:
+            obj = qs
+        return obj
+
+    def optimize_policies(self, buffer):
+        if self.ensemble:
+            return
+        if self.mean_update:
+            optimize_policy(self.target_policy, self.target_policy_optimizer, buffer,
+                            action_space=self.action_space, obj_func=self.obj_func,
+                            init_policy=self.init_target_policy, upper_bound=False)
+        optimize_policy(self.policy, self.policy_optimizer, buffer, obj_func=self.obj_func,
+                        init_policy=self.init_policy, action_space=self.action_space, upper_bound=True)

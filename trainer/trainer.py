@@ -98,7 +98,9 @@ class SACTrainer(object):
         self.tfs = [self.target_qf1, self.target_qf2]
 
     def train(self, np_batch):
+        buffer = np_batch.pop('buffer', None)
         batch = np_to_pytorch_batch(np_batch)
+        batch['buffer'] = buffer
         self.train_from_torch(batch)
 
     def train_from_torch(self, batch):

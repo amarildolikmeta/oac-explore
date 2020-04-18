@@ -22,7 +22,7 @@ def get_cmd_args():
     parser.add_argument('--n_estimators', type=int, default=2)
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--log_dir', type=str, default='./data/')
-    parser.add_argument('--max_path_length', type=int, default=200)
+    parser.add_argument('--max_path_length', type=int, default=320)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
     parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
     parser.add_argument('--epochs', type=int, default=200)
@@ -40,8 +40,8 @@ def get_cmd_args():
     # Training param
     parser.add_argument('--num_expl_steps_per_train_loop',
                         type=int, default=2000)
-    parser.add_argument('--num_trains_per_train_loop', type=int, default=100)
-    parser.add_argument('--num_train_loops_per_epoch', type=int, default=20)
+    parser.add_argument('--num_trains_per_train_loop', type=int, default=10)
+    parser.add_argument('--num_train_loops_per_epoch', type=int, default=40)
     parser.add_argument('--replay_buffer_factor', type=int, default=5)
 
     args = parser.parse_args()

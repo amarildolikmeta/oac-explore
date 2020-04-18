@@ -35,7 +35,8 @@ class ParticleTrainerTS(SACTrainer):
             share_layers=False,
             q_posterior_producer=None,
             counts=False,
-            mean_update=False
+            mean_update=False,
+            global_opt=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -74,6 +75,7 @@ class ParticleTrainerTS(SACTrainer):
         self.tfs = []
         self.counts = counts
         self.mean_update = mean_update
+        self.global_opt = global_opt
         initial_values = np.linspace(self.q_min, self.q_max, self.n_estimators)
         if share_layers:
             for i in range(n_estimators):

@@ -12,10 +12,10 @@ def running_mean(x, N):
 #dir = '../data/data_remote/'
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-envs = ['point_hard']
-#settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts'  ]
-#settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', ]
-settings = ['p-oac_']
+envs = ['humanoid']
+settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts']
+#settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', 'g-oac_priority', 'p-oac_priority' ]
+#settings = ['p-oac_priority']
 #settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 #settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 
@@ -40,11 +40,11 @@ field_to_label = {
     'trainer/Policy mu Mean': 'policy mu',
     'trainer/Policy log std Mean': 'policy std'
 }
-separate = True
+separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 20
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -110,8 +110,8 @@ for env in envs:
                                          mean + 2 * (std / np.sqrt(n)),
                                  alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
-        if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
-            ax[col // n_col][col % n_col].set_ylim((-10000, 0))
+        # if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
+        #     ax[col // n_col][col % n_col].set_ylim((-10000, 0))
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})

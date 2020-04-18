@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 
@@ -58,3 +60,28 @@ def np_to_pytorch_batch(np_batch):
         for k, x in _filter_batch(np_batch)
         if x.dtype != np.dtype('O')  # ignore object (e.g. dictionaries)
     }
+
+
+def optimize_policy(policy,  policy_optimizer, buffer, init_policy, action_space, obj_func,
+                     batch_size=32, num_actions=10, upper_bound=False, iterations=10):
+    dataset = np.copy(buffer.get_dataset())
+    ptu.copy_model_params_from_to(init_policy, policy)
+    for it in range(iterations):
+        random.shuffle(dataset)
+        start = 0
+        while start <= dataset.shape[0]:
+            states = torch_ify(dataset[start:start + batch_size])
+            for i in range(num_actions):
+                actions = []
+                for j in range(states.shape[0]):
+                    action = action_space.sample()
+                    actions.append(action)
+                actions = torch_ify(np.array(actions))
+                obj = obj_func(states, actions, upper_bound)
+                ##upper_bound (in some way)
+                policy_loss = (-obj).mean()
+                policy_optimizer.zero_grad()
+                policy_loss.backward()
+                policy_optimizer.step()
+            start += batch_size
+    return policy

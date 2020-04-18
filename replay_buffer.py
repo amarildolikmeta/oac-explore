@@ -114,6 +114,11 @@ class ReplayBuffer(object):
         )
         return batch
 
+    def get_dataset(self):
+
+        return self._observations[:self._size]
+
+
     def num_steps_can_sample(self):
         return self._size
 

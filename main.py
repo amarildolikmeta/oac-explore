@@ -306,7 +306,8 @@ def get_cmd_args():
     parser.add_argument('--r_mellow_max', type=float, default=1.)
     parser.add_argument('--mellow_max', action="store_true")
     parser.add_argument('--priority_sample', action="store_true")
-
+    parser.add_argument('--global_opt', action="store_true")
+    parser.add_argument('--save_sampled_data', default=False, action='store_true')
     parser.add_argument('--n_components', type=int, default=1)
     parser.add_argument('--snapshot_gap', type=int, default=100)
     parser.add_argument('--snapshot_mode', type=str, default='last_every_gap', choices=['last_every_gap',
@@ -404,6 +405,7 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['num_eval_steps_per_epoch'] = args.num_eval_steps_per_epoch
     variant['algorithm_kwargs']['min_num_steps_before_training'] = args.min_num_steps_before_training
     variant['algorithm_kwargs']['batch_size'] = args.batch_size
+    variant['algorithm_kwargs']['save_sampled_data'] = args.save_sampled_data
     variant['algorithm_kwargs']['num_train_loops_per_epoch'] = args.num_train_loops_per_epoch
 
     variant['delta'] = args.delta
@@ -422,9 +424,11 @@ if __name__ == "__main__":
         variant['trainer_kwargs']['mean_update'] = args.share_layers
         variant['trainer_kwargs']['counts'] = args.counts
         variant['priority_sample'] = args.priority_sample
+        variant['trainer_kwargs']['global_opt'] = args.global_opt
         if args.alg in ['p-oac', 'g-oac']:
             variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max
+            variant['algorithm_kwargs']['global_opt'] = args.global_opt
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim

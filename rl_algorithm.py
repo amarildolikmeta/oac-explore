@@ -33,6 +33,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             min_num_steps_before_training=0,
             optimistic_exp_hp=None,
             deterministic=False,
+            save_sampled_data=False,
+            global_opt=False
     ):
         super().__init__()
         """
@@ -48,6 +50,10 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self.min_num_steps_before_training = min_num_steps_before_training
         self.optimistic_exp_hp = optimistic_exp_hp
         self.deterministic = deterministic
+        self.save_sampled_data = save_sampled_data
+        self.ob_sampled = []
+        self.ac_sampled = []
+        self.global_opt = global_opt
         """
         The class mutable state
         """
@@ -135,7 +141,14 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 for _ in range(self.num_trains_per_train_loop):
                     train_data = self.replay_buffer.random_batch(
                         self.batch_size)
+                    if self.save_sampled_data:
+                        self.ob_sampled.append(train_data['observations'])
+                        self.ac_sampled.append(train_data['actions'])
+                    train_data['buffer'] = self.replay_buffer
                     self.trainer.train(train_data)
+
+                if self.global_opt:
+                    self.trainer.optimize_policies(self.replay_buffer)
                 gt.stamp('training', unique=False)
 
             # Wait for eval to finish
@@ -169,6 +182,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             logger.save_itr_params(epoch, snapshot)
             #gt.stamp('saving')
 
+        if self.save_sampled_data:
+            logger.save_sampled_data(self.ob_sampled, self.ac_sampled)
         logger.record_dict(_get_epoch_timings())
         logger.record_tabular('Epoch', epoch)
 

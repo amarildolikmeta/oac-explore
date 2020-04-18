@@ -340,5 +340,13 @@ class Logger(object):
             else:
                 raise NotImplementedError
 
-
+    def save_sampled_data(self, ob_sampled, ac_sampled):
+        file_name = osp.join(
+            self._snapshot_dir, 'sampled_actions.pkl')
+        with open(file_name, 'wb') as f:
+            pickle.dump(ac_sampled, f)
+        file_name = osp.join(
+            self._snapshot_dir, 'sampled_states.pkl')
+        with open(file_name, 'wb') as f:
+            pickle.dump(ob_sampled, f)
 logger = Logger()

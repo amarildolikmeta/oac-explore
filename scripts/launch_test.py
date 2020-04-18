@@ -11,9 +11,9 @@ from utils.pythonplusplus import load_gzip_pickle
 
 
 ts = '1584884279.5007188'
-ts = '1586803712.1245544'
+ts = '1586873577.93722'
 iter = 190
-path = '../data/point_hard/p-oac_/' + ts
+path = '../data/point_hard/p-oac_priority/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -95,7 +95,7 @@ for i in range(10):
     t = 0
     while not done and t < 300:
         expl_env.render()
-        if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and variant['trainer_kwargs']['mean_update']:
+        if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and variant['trainer_kwargs']['mean_update'] and False:
             a, agent_info = trainer.target_policy.get_action(s, deterministic=True)
         else:
             a, agent_info = trainer.policy.get_action(s, deterministic=True)
