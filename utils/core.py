@@ -69,7 +69,7 @@ def optimize_policy(policy,  policy_optimizer, buffer, init_policy, action_space
     for it in range(iterations):
         random.shuffle(dataset)
         start = 0
-        while start <= dataset.shape[0]:
+        while start < dataset.shape[0]:
             states = torch_ify(dataset[start:start + batch_size])
             for i in range(num_actions):
                 actions = []
