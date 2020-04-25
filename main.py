@@ -448,11 +448,11 @@ if __name__ == "__main__":
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
         gpu_id = None
-    if not args.no_gpu:
-        try:
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        except:
-            pass
+    # if not args.no_gpu:
+    #     try:
+    #         torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    #     except:
+    #         pass
     run_experiment_here(experiment, variant,
                         seed=args.seed,
                         use_gpu=not args.no_gpu and torch.cuda.is_available(),
