@@ -7,17 +7,16 @@ from utils.core import np_ify, torch_ify
 import matplotlib.pyplot as plt
 from utils.pythonplusplus import load_gzip_pickle
 
-ts = '1585147505.523648'
+ts = '1584884279.5007188'
 iter = 190
-path = './data/riverswim/g-tsac/' + ts + '/variant.json'
+path = 'data/riverswim/p-oac/' + ts + '/variant.json'
 restore = True
 
 variant = json.load(open(path,'r'))
 domain = variant['domain']
 seed = variant['seed']
 r_max = variant['r_max']
-n_components = variant['n_components']
-
+alg = variant['alg']
 if seed == 0:
     np.random.seed()
     seed = np.random.randint(0, 1000000)
@@ -56,15 +55,14 @@ trainer = GaussianTrainerTS(
         q_min=q_min,
         q_max=q_max,
         action_space=expl_env.action_space,
-        n_components=variant['n_components'],
         **variant['trainer_kwargs']
     )
-iter = 10
+iter = 70
 delta_iter = 10
-max_iter = 11
+max_iter = 71
 while iter <= max_iter:
     if restore:
-        experiment = './data/riverswim/g-tsac/' + ts +'/params.zip_pkl'
+        experiment = './data/riverswim/' + alg + '/' + ts + '/itr_' + str(iter) + '.zip_pkl'
         exp = load_gzip_pickle(experiment)
         trainer.restore_from_snapshot(exp['trainer'])
     delta_action = 0.05
@@ -73,7 +71,7 @@ while iter <= max_iter:
     for i in range(25):
         row = i // 5
         col = i % 5
-        ob = np.array([i]).reshape((1,1))
+        ob = np.array([i]).reshape((1, 1))
         action = -1
         pairs = []
         while action < 1.05:
@@ -93,7 +91,7 @@ while iter <= max_iter:
 
 
         new_obs_actions, policy_means, policy_log_stds, log_pi, *_ = trainer.policy(
-            obs=torch_ify(ob), reparameterize=True, return_log_prob=True, deterministic=trainer.deterministic, return_all_components=True,
+            obs=torch_ify(ob), reparameterize=True, return_log_prob=True, deterministic=trainer.deterministic,
         )
         means_ = policy_means
         print(policy_log_stds)

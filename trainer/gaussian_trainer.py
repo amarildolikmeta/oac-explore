@@ -153,7 +153,7 @@ class GaussianTrainer(SACTrainer):
             if self.global_opt:
                 self.init_target_policy = policy_producer()
 
-    def predict(self, obs, action):
+    def predict(self, obs, action, std=True):
         obs = np.array(obs)
         # action = np.array(action)
         obs = torch_ify(obs)
@@ -168,6 +168,8 @@ class GaussianTrainer(SACTrainer):
             else:
                 stds = self.std(obs, action)
         upper_bound = qs + self.standard_bound * stds
+        if std:
+            return [qs, stds], upper_bound
         return upper_bound
 
     def train_from_torch(self, batch):

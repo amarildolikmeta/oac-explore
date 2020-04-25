@@ -128,7 +128,7 @@ class ParticleTrainer(SACTrainer):
                     self.target_policy.parameters(),
                     lr=policy_lr)
 
-    def predict(self, obs, action):
+    def predict(self, obs, action, all_particles=False):
         obs = np.array(obs)
         #action = np.array(action)
         obs = torch_ify(obs)
@@ -142,6 +142,8 @@ class ParticleTrainer(SACTrainer):
             qs = qs.permute(2, 1, 0)
         sorted_qs = torch.sort(qs, dim=0)[0]
         upper_bound = sorted_qs[delta_index]
+        if all_particles:
+            return sorted_qs, upper_bound
         return upper_bound
 
     def train_from_torch(self, batch):

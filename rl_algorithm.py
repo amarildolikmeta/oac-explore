@@ -177,7 +177,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         # after we call end epoch on all objects with internal state.
         # This is so that restoring from the saved state will
         # lead to identical result as if the program was left running.
-        if epoch > 0:
+        if epoch >= 0:
             snapshot = self._get_snapshot(epoch)
             logger.save_itr_params(epoch, snapshot)
             #gt.stamp('saving')

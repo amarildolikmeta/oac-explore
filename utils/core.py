@@ -63,25 +63,41 @@ def np_to_pytorch_batch(np_batch):
 
 
 def optimize_policy(policy,  policy_optimizer, buffer, init_policy, action_space, obj_func,
-                    batch_size=32, num_actions=10, upper_bound=False, iterations=50):
+                    batch_size=32, num_actions=10, upper_bound=False, iterations=10):
     dataset = np.copy(buffer.get_dataset())
     ptu.copy_model_params_from_to(init_policy, policy)
+    zero_tensor = torch.tensor(0.)
     for it in range(iterations):
         random.shuffle(dataset)
         start = 0
         while start < dataset.shape[0]:
             states = torch_ify(dataset[start:start + batch_size])
-            for i in range(num_actions):
-                actions = []
-                for j in range(states.shape[0]):
-                    action = action_space.sample()
-                    actions.append(action)
-                actions = torch_ify(np.array(actions))
-                obj = obj_func(states, actions, upper_bound)
+            iters = 50
+            for i in range(iters):
+                target_actions, policy_mean, policy_log_std, log_pi, *_ = policy(
+                    obs=states, reparameterize=True, return_log_prob=True, deterministic=True
+                )
+
+                obj = obj_func(states, target_actions, upper_bound)
                 ##upper_bound (in some way)
                 policy_loss = (-obj).mean()
                 policy_optimizer.zero_grad()
                 policy_loss.backward()
                 policy_optimizer.step()
+                norm = grad_norm(policy)
+                if torch.isclose(norm, zero_tensor):
+                    break
             start += batch_size
     return policy
+
+
+def grad_norm(model):
+    total_norm = 0
+    for p in model.parameters():
+        try:
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm ** 2
+        except:
+            pass
+    total_norm = total_norm ** (1. / 2)
+    return total_norm

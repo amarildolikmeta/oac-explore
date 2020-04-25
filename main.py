@@ -19,8 +19,10 @@ from trainer.particle_trainer_ts import ParticleTrainerTS
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
-#import ray
+# import ray
 import logging
+
+
 # ray.init(
 #     # If true, then output from all of the worker processes on all nodes will be directed to the driver.
 #     log_to_driver=True,
@@ -33,7 +35,6 @@ import logging
 
 
 def get_current_branch(dir):
-
     from git import Repo
 
     repo = Repo(dir)
@@ -41,9 +42,8 @@ def get_current_branch(dir):
 
 
 def get_policy_producer(obs_dim, action_dim, hidden_sizes):
-
     def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1, n_components=1,
-                    approximator=None, share_layers=False):
+                        approximator=None, share_layers=False):
         if ensemble:
             policy = EnsemblePolicy(approximator=approximator,
                                     hidden_sizes=hidden_sizes,
@@ -99,7 +99,6 @@ def get_q_producer(obs_dim, action_dim, hidden_sizes, output_size=1):
 
 
 def experiment(variant, prev_exp_state=None):
-
     domain = variant['domain']
     seed = variant['seed']
     if seed == 0:
@@ -124,7 +123,7 @@ def experiment(variant, prev_exp_state=None):
 
     if variant['share_layers']:
         output_size = n_estimators
-        #n_estimators = 1
+        # n_estimators = 1
     else:
         output_size = 1
     q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
@@ -253,7 +252,6 @@ def experiment(variant, prev_exp_state=None):
     algorithm.to(ptu.device)
 
     if prev_exp_state is not None:
-
         expl_path_collector.restore_from_snapshot(
             prev_exp_state['exploration'])
 
@@ -269,13 +267,12 @@ def experiment(variant, prev_exp_state=None):
         set_global_pkg_rng_state(prev_exp_state['global_pkg_rng_state'])
 
     start_epoch = prev_exp_state['epoch'] + \
-        1 if prev_exp_state is not None else 0
+                  1 if prev_exp_state is not None else 0
 
     algorithm.train(start_epoch)
 
 
 def get_cmd_args():
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--domain', type=str, default='mountain')
@@ -309,16 +306,16 @@ def get_cmd_args():
     parser.add_argument('--global_opt', action="store_true")
     parser.add_argument('--save_sampled_data', default=False, action='store_true')
     parser.add_argument('--n_components', type=int, default=1)
-    parser.add_argument('--snapshot_gap', type=int, default=100)
+    parser.add_argument('--snapshot_gap', type=int, default=10)
     parser.add_argument('--snapshot_mode', type=str, default='last_every_gap', choices=['last_every_gap',
                                                                                         'all',
                                                                                         'last',
                                                                                         "gap",
                                                                                         'gap_and_last'])
     parser.add_argument('--difficulty', type=str, default='hard', choices=['easy',
-                                                                            'medium',
-                                                                            'hard',
-                                                                            "harder"])
+                                                                           'medium',
+                                                                           'hard',
+                                                                           "harder"])
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
@@ -337,7 +334,6 @@ def get_cmd_args():
 
 
 def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True, should_include_domain=True):
-
     start_time = time.time()
     if args.load_dir != '':
         log_dir = args.load_dir
@@ -348,8 +344,11 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
             el = str(args.n_components)
         else:
             el = ''
-        log_dir = args.log_dir + ('mean_update_' if args.mean_update else '') + ('counts/' if args.counts else '') + \
-                  ('/' if args.mean_update and not args.counts else '' ) +  \
+        log_dir = args.log_dir + \
+                  ('global/' if args.global_opt else '') + \
+                  ('mean_update_' if args.mean_update else '') + \
+                  ('counts/' if args.counts else '') + \
+                  ('/' if args.mean_update and not args.counts else '') + \
                   args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
@@ -395,7 +394,7 @@ if __name__ == "__main__":
     variant['num_layers'] = args.num_layers
     variant['layer_size'] = args.layer_size
     variant['share_layers'] = args.share_layers
-    variant['n_estimators'] = args.n_estimators if args.alg  in ['p-oac', 'p-tsac'] else 2
+    variant['n_estimators'] = args.n_estimators if args.alg in ['p-oac', 'p-tsac'] else 2
     variant['replay_buffer_size'] = int(args.replay_buffer_size)
 
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain) if args.epochs <= 0 else args.epochs
@@ -410,7 +409,8 @@ if __name__ == "__main__":
 
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
-                                                                                                      'g-oac', 'g-tsac', 'p-tsac']
+                                                                                                      'g-oac', 'g-tsac',
+                                                                                                      'p-tsac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
 
@@ -448,7 +448,8 @@ if __name__ == "__main__":
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
         gpu_id = None
-
+    if not args.no_gpu:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
     run_experiment_here(experiment, variant,
                         seed=args.seed,
                         use_gpu=not args.no_gpu and torch.cuda.is_available(),
