@@ -421,7 +421,7 @@ if __name__ == "__main__":
     variant['priority_sample'] = False
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
-        variant['trainer_kwargs']['mean_update'] = args.share_layers
+        variant['trainer_kwargs']['mean_update'] = args.mean_update
         variant['trainer_kwargs']['counts'] = args.counts
         variant['priority_sample'] = args.priority_sample
         variant['trainer_kwargs']['global_opt'] = args.global_opt
@@ -448,11 +448,11 @@ if __name__ == "__main__":
         gpu_id = int(args.seed % torch.cuda.device_count())
     else:
         gpu_id = None
-    # if not args.no_gpu:
-    #     try:
-    #         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    #     except:
-    #         pass
+    if not args.no_gpu:
+        try:
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        except:
+            pass
     run_experiment_here(experiment, variant,
                         seed=args.seed,
                         use_gpu=not args.no_gpu and torch.cuda.is_available(),
