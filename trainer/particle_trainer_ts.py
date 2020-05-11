@@ -58,7 +58,7 @@ class ParticleTrainerTS(SACTrainer):
                 self.delta_index = p
                 break
             if quantiles[p] > delta:
-                self.delta_index = p - 1
+                self.delta_index = p
                 break
         if q_posterior_producer is None:
             q_posterior_producer = q_producer
