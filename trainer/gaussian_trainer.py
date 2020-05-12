@@ -534,12 +534,14 @@ class GaussianTrainer(SACTrainer):
             obj = qs
         return obj
 
-    def optimize_policies(self, buffer):
+    def optimize_policies(self, buffer, out_dir='', epoch=0, save_fig=False):
         if self.ensemble:
             return
         if self.mean_update:
             optimize_policy(self.target_policy, self.target_policy_optimizer, buffer,
                             action_space=self.action_space, obj_func=self.obj_func,
-                            init_policy=self.init_target_policy, upper_bound=False)
+                            init_policy=self.init_target_policy, upper_bound=False, out_dir=out_dir,
+                            epoch=epoch, save_fig=save_fig)
         optimize_policy(self.policy, self.policy_optimizer, buffer, obj_func=self.obj_func,
-                        init_policy=self.init_policy, action_space=self.action_space, upper_bound=True)
+                        init_policy=self.init_policy, action_space=self.action_space, upper_bound=True,
+                        out_dir=out_dir, epoch=epoch, save_fig=save_fig)

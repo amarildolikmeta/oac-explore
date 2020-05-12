@@ -11,6 +11,7 @@ from utils.rng import set_global_pkg_rng_state
 from launcher_util import run_experiment_here
 from path_collector import MdpPathCollector, RemoteMdpPathCollector
 from trainer.policies import TanhGaussianPolicy, MakeDeterministic, EnsemblePolicy, TanhGaussianMixturePolicy
+from trainer.policies import GaussianPolicy
 from trainer.trainer import SACTrainer
 from trainer.particle_trainer import ParticleTrainer
 from trainer.gaussian_trainer import GaussianTrainer
@@ -41,7 +42,7 @@ def get_current_branch(dir):
     return repo.active_branch.name
 
 
-def get_policy_producer(obs_dim, action_dim, hidden_sizes):
+def get_policy_producer(obs_dim, action_dim, hidden_sizes, clip=True):
     def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1, n_components=1,
                         approximator=None, share_layers=False):
         if ensemble:
@@ -53,8 +54,14 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes):
                                     bias=bias,
                                     share_layers=share_layers)
         else:
-
-            if n_components == 1:
+            if not clip:
+                policy = GaussianPolicy(
+                    obs_dim=obs_dim,
+                    action_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    bias=bias
+                )
+            elif n_components == 1:
                 policy = TanhGaussianPolicy(
                     obs_dim=obs_dim,
                     action_dim=action_dim,
@@ -111,6 +118,9 @@ def experiment(variant, prev_exp_state=None):
         env_args['dim'] = variant['dim']
     if domain in ['point']:
         env_args['difficulty'] = variant['difficulty']
+    if 'cliff' in domain:
+        env_args['sigma_noise'] = variant['sigma_noise']
+
     expl_env = env_producer(domain, seed, **env_args)
     eval_env = env_producer(domain, seed * 10 + 1, **env_args)
     obs_dim = expl_env.observation_space.low.size
@@ -127,7 +137,7 @@ def experiment(variant, prev_exp_state=None):
     else:
         output_size = 1
     q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
-    policy_producer = get_policy_producer(obs_dim, action_dim, hidden_sizes=[M] * N)
+    policy_producer = get_policy_producer(obs_dim, action_dim, hidden_sizes=[M] * N, clip=variant['clip_action'])
     # Finished getting producer
 
     remote_eval_path_collector = MdpPathCollector(
@@ -294,9 +304,7 @@ def get_cmd_args():
     parser.add_argument('--log_dir', type=str, default='./data/')
     parser.add_argument('--max_path_length', type=int, default=100)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
-    parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
     parser.add_argument('--epochs', type=int, default=200)
-    parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--r_min', type=float, default=0.)
     parser.add_argument('--r_max', type=float, default=1.)
@@ -307,6 +315,7 @@ def get_cmd_args():
     parser.add_argument('--save_sampled_data', default=False, action='store_true')
     parser.add_argument('--n_components', type=int, default=1)
     parser.add_argument('--snapshot_gap', type=int, default=10)
+    parser.add_argument('--save_fig', action='store_true')
     parser.add_argument('--snapshot_mode', type=str, default='last_every_gap', choices=['last_every_gap',
                                                                                         'all',
                                                                                         'last',
@@ -316,6 +325,9 @@ def get_cmd_args():
                                                                            'medium',
                                                                            'hard',
                                                                            "harder"])
+    parser.add_argument('--policy_lr', type=float, default=3E-4)
+    parser.add_argument('--qf_lr', type=float, default=3E-4)
+    parser.add_argument('--sigma_noise', type=float, default=0.0)
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
@@ -327,6 +339,11 @@ def get_cmd_args():
                         type=int, default=2000)
     parser.add_argument('--num_trains_per_train_loop', type=int, default=1000)
     parser.add_argument('--num_train_loops_per_epoch', type=int, default=1)
+    parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
+    parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
+    parser.add_argument('--clip_action', dest='clip_action', action='store_true')
+    parser.add_argument('--no-clip_action', dest='clip_action', action='store_false')
+    parser.set_defaults(clip_action=True)
 
     args = parser.parse_args()
 
@@ -413,12 +430,16 @@ if __name__ == "__main__":
                                                                                                       'p-tsac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
-
     variant['trainer_kwargs']['discount'] = args.gamma
+    variant['trainer_kwargs']['policy_lr'] = args.policy_lr
+    variant['trainer_kwargs']['qf_lr'] = args.qf_lr
     variant['ensemble'] = args.ensemble
     variant['n_policies'] = args.n_policies if args.ensemble else 1
     variant['n_components'] = args.n_components
     variant['priority_sample'] = False
+    variant['clip_action'] = args.clip_action
+    if args.domain == 'lqg':
+        variant['clip_action'] = False
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         variant['trainer_kwargs']['share_layers'] = args.share_layers
         variant['trainer_kwargs']['mean_update'] = args.mean_update
@@ -429,6 +450,7 @@ if __name__ == "__main__":
             variant['trainer_kwargs']['r_mellow_max'] = args.r_mellow_max
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max
             variant['algorithm_kwargs']['global_opt'] = args.global_opt
+            variant['algorithm_kwargs']['save_fig'] = args.save_fig
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim
@@ -437,6 +459,7 @@ if __name__ == "__main__":
     variant['no_resampling'] = args.no_resampling
     variant['r_min'] = args.r_min
     variant['r_max'] = args.r_max
+    variant['sigma_noise'] = args.sigma_noise
 
     if args.no_resampling:
         variant['algorithm_kwargs']['num_trains_per_train_loop'] = 500

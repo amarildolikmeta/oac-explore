@@ -60,7 +60,7 @@ class ParticleTrainer(SACTrainer):
                 self.delta_index = p
                 break
             if quantiles[p] > delta:
-                self.delta_index = p - 1
+                self.delta_index = p
                 break
         initial_values = np.linspace(q_min, q_max, n_estimators)
         self.share_layers = share_layers
@@ -474,14 +474,16 @@ class ParticleTrainer(SACTrainer):
             obj = torch.mean(pi_qs, dim=0)
         return obj
 
-    def optimize_policies(self, buffer):
+    def optimize_policies(self, buffer, out_dir='', epoch=0):
         if self.ensemble:
             return
         if self.mean_update:
             optimize_policy(self.target_policy, self.target_policy_optimizer, buffer,
                             action_space=self.action_space, obj_func=self.obj_func,
-                            init_policy=self.init_target_policy, upper_bound=False)
+                            init_policy=self.init_target_policy, upper_bound=False, out_dir=out_dir,
+                            epoch=epoch)
         optimize_policy(self.policy, self.policy_optimizer, buffer, obj_func=self.obj_func,
-                        init_policy=self.init_policy, action_space=self.action_space, upper_bound=True)
+                        init_policy=self.init_policy, action_space=self.action_space, upper_bound=True,
+                        out_dir=out_dir, epoch=epoch)
 
 

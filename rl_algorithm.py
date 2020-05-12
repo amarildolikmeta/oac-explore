@@ -34,7 +34,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             optimistic_exp_hp=None,
             deterministic=False,
             save_sampled_data=False,
-            global_opt=False
+            global_opt=False,
+            save_fig=False
     ):
         super().__init__()
         """
@@ -72,6 +73,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self.remote_eval_data_collector = remote_eval_data_collector
 
         self.replay_buffer = replay_buffer
+        self.save_fig = save_fig
 
     def train(self, start_epoch=0):
         self._start_epoch = start_epoch
@@ -148,7 +150,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                     self.trainer.train(train_data)
 
                 if self.global_opt:
-                    self.trainer.optimize_policies(self.replay_buffer)
+                    self.trainer.optimize_policies(self.replay_buffer, out_dir=logger._snapshot_dir,
+                                                   epoch=epoch, save_fig=self.save_fig)
                 gt.stamp('training', unique=False)
 
             # Wait for eval to finish
