@@ -361,12 +361,12 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
             el = str(args.n_components)
         else:
             el = ''
-        log_dir = args.log_dir + \
+        log_dir = args.log_dir + '/' + args.domain + '/' + \
                   ('global/' if args.global_opt else '') + \
                   ('mean_update_' if args.mean_update else '') + \
                   ('counts/' if args.counts else '') + \
                   ('/' if args.mean_update and not args.counts else '') + \
-                  args.domain + '/' + args.alg + '_' + el + '/' + str(start_time) + '/'
+                   args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
 

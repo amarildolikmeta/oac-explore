@@ -12,22 +12,34 @@ def running_mean(x, N):
 #dir = '../data/data_remote/'
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-envs = ['cliff_mono']
+envs = ['riverswim']
 settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts']
 #settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', 'g-oac_priority', 'p-oac_priority' ]
 #settings = ['p-oac_priority']
 #settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 #settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
-settings = ['global/mean_update_counts/p-oac_', 'mean_update_/p-oac_', 'global/mean_update_/p-oac_', 'global/mean_update_/g-oac_', 'global/mean_update_counts/g-oac_',
-            'oac_', 'sac_'] #
+settings = ['global/counts/g-oac_', 'global/mean_update/g-oac_', 'global/g-oac_', 'global/mean_update_counts/g-oac_',
+            'mean_update_counts/g-oac_', 'counts/g-oac_', 'mean_update_/g-oac_', 'g-oac_',
+            'oac_', 'sac_'
+            ]  #'oac_', 'sac_', 'global/mean_update_counts/g-oac_',
+# settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
+#             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
+#             'oac_', 'sac_'
+#             ]
+# settings = ['global/counts/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts/p-oac_',
+#             'global/counts/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts/g-oac_',
+#             'oac_', 'sac_'
+#             ]
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
-          'trainer/QF mean', 'trainer/QF std',
-          'exploration/Returns Max', 'remote_evaluation/Returns Max',
-          'trainer/Policy mu Mean', 'trainer/Policy log std Mean']  # 'trainer/QF std 2']
+          'trainer/QF mean', 'trainer/QF std',]  # 'trainer/QF std 2']
+
+#
+# 'exploration/Returns Max', 'remote_evaluation/Returns Max',
+# 'trainer/Policy mu Mean', 'trainer/Policy log std Mean']
 field_to_label = {
     'remote_evaluation/Average Returns': 'offline return',
     'exploration/Average Returns': 'online return',
@@ -45,7 +57,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 5
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -106,10 +118,10 @@ for env in envs:
                 else:
                     label = None
                 ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
-                if n > 1:
-                    ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
-                                         mean + 2 * (std / np.sqrt(n)),
-                                 alpha=0.2, color=colors[s])
+                # if n > 1:
+                #     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
+                #                          mean + 2 * (std / np.sqrt(n)),
+                #                  alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         # if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
         #     ax[col // n_col][col % n_col].set_ylim((-10000, 0))
@@ -118,8 +130,10 @@ for env in envs:
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         col += 1
         plot_count += 1
-    fig.legend(loc='lower center', ncol=len(fields)//2)
+    fig.legend(loc='lower center', ncol=len(settings)//2)
+    fig.savefig(env + '.png')
     plt.show()
+
 # oac = pd.read_csv('oac/1581679951.0551817/progress.csv')
 # w_oac = pd.read_csv('../data/riverswim/w-oac/1581679961.4996805/progress.csv')
 # sac = pd.read_csv('../data/riverswim/sac/1581692438.1551993/progress.csv')

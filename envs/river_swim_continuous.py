@@ -89,7 +89,7 @@ if __name__ == '__main__':
             a = 1
             s, r, _, _ = mdp.step(a)
             ret += r
-            t+=1
+            t += 1
         rets.append(ret)
     print("Average Return:", np.mean(rets))
     print("Average error:", np.std(rets) / np.sqrt(n))
