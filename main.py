@@ -331,6 +331,7 @@ def get_cmd_args():
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
+    parser.add_argument('--deterministic_optimistic_exp', action='store_true')
     parser.add_argument('--no_resampling', action="store_true",
                         help="Samples are removed from replay buffer after being used once")
 
@@ -430,6 +431,8 @@ if __name__ == "__main__":
                                                                                                       'p-tsac']
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
+    variant['optimistic_exp']['deterministic'] = args.deterministic_optimistic_exp
+
     variant['trainer_kwargs']['discount'] = args.gamma
     variant['trainer_kwargs']['policy_lr'] = args.policy_lr
     variant['trainer_kwargs']['qf_lr'] = args.qf_lr
