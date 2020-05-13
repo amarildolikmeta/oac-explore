@@ -61,7 +61,6 @@ class GaussianTrainer(SACTrainer):
         self.q_min = q_min
         self.q_max = q_max
         self.standard_bound = standard_bound = norm.ppf(delta, loc=0, scale=1)
-        self.pac = pac
         self.share_layers = share_layers
         mean = (q_max + q_min) / 2
         std = (q_max - q_min) / np.sqrt(12)
@@ -91,18 +90,6 @@ class GaussianTrainer(SACTrainer):
             self.q_optimizer = optimizer_class(
                 self.q.parameters(),
                 lr=qf_lr, )
-            if self.pac:
-                a = (2 + discount) / (2 * (1 - discount))
-                b = a - 1
-                c = 1
-
-                self.sigma_b = sigma2_0 = (discount * q_max) / (c * standard_bound) * np.sqrt(a * 1000)
-                log_std = -5.
-                self.std_2 = q_producer(bias=np.log(sigma2_0), positive=True)
-                self.std_2_target = q_producer(bias=np.log(sigma2_0), positive=True)
-                self.std_2_optimizer = optimizer_class(
-                    self.std_2.parameters(),
-                    lr=std_lr * 0.1, )
             self.std = q_producer(bias=log_std, positive=True)
             self.std_target = q_producer(bias=log_std, positive=True)
             self.std_optimizer = optimizer_class(
@@ -110,9 +97,6 @@ class GaussianTrainer(SACTrainer):
                 lr=std_lr, )
             self.qfs = [self.q, self.std]
             self.tfs = [self.q_target, self.std_target]
-            if pac:
-                self.qfs.append(self.std_2)
-                self.tfs.append(self.std_2_target)
         # self.tfs.append(q_producer(bias=std))
         # for i in range(n_estimators):
         #     self.qfs.append()
@@ -145,13 +129,13 @@ class GaussianTrainer(SACTrainer):
                         lr=policy_lr))
         elif self.global_opt:
             self.init_policy = policy_producer()
-        if mean_update:
-            self.target_policy = policy_producer()
-            self.target_policy_optimizer = optimizer_class(
-                self.target_policy.parameters(),
-                lr=policy_lr)
-            if self.global_opt:
-                self.init_target_policy = policy_producer()
+        # if mean_update:
+        self.target_policy = policy_producer()
+        self.target_policy_optimizer = optimizer_class(
+            self.target_policy.parameters(),
+            lr=policy_lr)
+        if self.global_opt:
+            self.init_target_policy = policy_producer()
 
     def predict(self, obs, action, std=True):
         obs = np.array(obs)
@@ -163,10 +147,7 @@ class GaussianTrainer(SACTrainer):
             stds = qs[:, 1].unsqueeze(-1)
             qs = qs[:, 0].unsqueeze(-1)
         else:
-            if self.pac:
-                stds = self.std_2(obs, action)
-            else:
-                stds = self.std(obs, action)
+            stds = self.std(obs, action)
         upper_bound = qs + self.standard_bound * stds
         if std:
             return [qs, stds], upper_bound
@@ -178,12 +159,12 @@ class GaussianTrainer(SACTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-        if self.counts:
-            counts = batch['counts']
-            discount = torch.ones_like(counts)
-            discount[counts == 0] = self.discount
-        else:
-            discount = self.discount
+        # if self.counts:
+        #     counts = batch['counts']
+        #     discount = torch.ones_like(counts)
+        #     discount[counts == 0] = self.discount
+        # else:
+        discount = self.discount
 
         """
         QF Loss
@@ -211,6 +192,11 @@ class GaussianTrainer(SACTrainer):
             target_stds = target_q_values[:, 1].unsqueeze(-1)
             target_q_values = target_q_values[:, 0].unsqueeze(-1)
             std_target = (1. - terminals) * discount * target_stds
+            if self.counts:
+                counts = batch['counts']
+                factor = torch.zeros_like(counts)
+                factor[counts == 0] = 1
+                std_target = std_target * factor + (1 - factor) * std_preds
             q_target = self.reward_scale * rewards + \
                        (1. - terminals) * self.discount * target_q_values
             loss = 0
@@ -230,32 +216,18 @@ class GaussianTrainer(SACTrainer):
             q_loss.backward(retain_graph=True)
             self.q_optimizer.step()
             # std network loss
-            if self.pac:
-                std_preds = self.std(obs, actions)
-                std_preds_2 = self.std_2(obs, actions)
-                target_stds_2 = self.std_2_target(next_obs, new_next_actions)
-
-                std_target = (1. - terminals) * discount * target_stds_2
-                std_target_2 = (1. - terminals) * discount * self.sigma_b / np.sqrt(
-                    (self._n_train_steps_total + 1))
-
-                std_loss = self.qf_criterion(std_preds, std_target.detach())
-                self.std_optimizer.zero_grad()
-                std_loss.backward(retain_graph=True)
-                self.std_optimizer.step()
-                std_loss_2 = self.qf_criterion(std_preds_2, std_target_2.detach())
-                self.std_2_optimizer.zero_grad()
-                std_loss_2.backward(retain_graph=True)
-                self.std_2_optimizer.step()
-            else:
-                std_preds = self.std(obs, actions)
-                target_stds = self.std_target(next_obs, new_next_actions)
-                std_target = (1. - terminals) * discount * target_stds
-
-                std_loss = self.qf_criterion(std_preds, std_target.detach())
-                self.std_optimizer.zero_grad()
-                std_loss.backward(retain_graph=True)
-                self.std_optimizer.step()
+            std_preds = self.std(obs, actions)
+            target_stds = self.std_target(next_obs, new_next_actions)
+            std_target = (1. - terminals) * discount * target_stds
+            if self.counts:
+                counts = batch['counts']
+                factor = torch.zeros_like(counts)
+                factor[counts == 0] = 1
+                std_target = std_target * factor + (1 - factor) * std_preds
+            std_loss = self.qf_criterion(std_preds, std_target.detach())
+            self.std_optimizer.zero_grad()
+            std_loss.backward(retain_graph=True)
+            self.std_optimizer.step()
 
         """
         Policy and Alpha Loss
@@ -319,10 +291,7 @@ class GaussianTrainer(SACTrainer):
                         stds = qs[:, 1].unsqueeze(-1)
                         qs = qs[:, 0].unsqueeze(-1)
                     else:
-                        if self.pac:
-                            stds = self.std_2(obs, new_obs_actions)
-                        else:
-                            stds = self.std(obs, new_obs_actions)
+                        stds = self.std(obs, new_obs_actions)
                     upper_bound = qs + self.standard_bound * stds
 
                     ##upper_bound (in some way)
@@ -347,10 +316,7 @@ class GaussianTrainer(SACTrainer):
                     stds = qs[:, 1].unsqueeze(-1)
                     qs = qs[:, 0].unsqueeze(-1)
                 else:
-                    if self.pac:
-                        stds = self.std_2(obs, new_obs_actions)
-                    else:
-                        stds = self.std(obs, new_obs_actions)
+                    stds = self.std(obs, new_obs_actions)
                 upper_bound = qs + self.standard_bound * stds
 
                 ##upper_bound (in some way)
@@ -359,29 +325,29 @@ class GaussianTrainer(SACTrainer):
                 policy_loss.backward()
                 self.policy_optimizer.step()
 
-        if self.mean_update:
-            """
-                Update_target_policy
-            """
-            # if self.global_opt:
-            #     # optimize_policy(self.target_policy, self.target_policy_optimizer, batch['buffer'],
-            #     #                 action_space=self.action_space, obj_func=self.obj_func,
-            #     #                 init_policy=self.init_target_policy, upper_bound=False)
-            #     pass
-            # else:
-            target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
-                obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
-            )
+        # if self.mean_update:
+        """
+            Update_target_policy
+        """
+        # if self.global_opt:
+        #     # optimize_policy(self.target_policy, self.target_policy_optimizer, batch['buffer'],
+        #     #                 action_space=self.action_space, obj_func=self.obj_func,
+        #     #                 init_policy=self.init_target_policy, upper_bound=False)
+        #     pass
+        # else:
+        target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
+            obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+        )
 
-            target_pi_qs = self.q(obs, target_actions)
-            if self.share_layers:
-                target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
-            mean_q = target_pi_qs
-            ##upper_bound (in some way)
-            target_policy_loss = (-mean_q).mean()
-            self.target_policy_optimizer.zero_grad()
-            target_policy_loss.backward()
-            self.target_policy_optimizer.step()
+        target_pi_qs = self.q(obs, target_actions)
+        if self.share_layers:
+            target_pi_qs = target_pi_qs[:, 0].unsqueeze(-1)
+        mean_q = target_pi_qs
+        ##upper_bound (in some way)
+        target_policy_loss = (-mean_q).mean()
+        self.target_policy_optimizer.zero_grad()
+        target_policy_loss.backward()
+        self.target_policy_optimizer.step()
         """
         Soft Updates
         """
@@ -406,8 +372,6 @@ class GaussianTrainer(SACTrainer):
 
             self.eval_statistics['QF mean'] = np.mean(ptu.get_numpy(q_preds))
             self.eval_statistics['QF std'] = np.mean(ptu.get_numpy(std_preds))
-            if self.pac:
-                self.eval_statistics['QF std 2'] = np.mean(ptu.get_numpy(std_preds_2))
             self.eval_statistics['QF Loss'] = np.mean(ptu.get_numpy(q_loss))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Predictions',
@@ -450,8 +414,8 @@ class GaussianTrainer(SACTrainer):
             networks = self.policy.policies + self.qfs + self.tfs
         else:
             networks = [self.policy] + self.qfs + self.tfs
-        if self.mean_update:
-            networks += [self.target_policy]
+        # if self.mean_update:
+        networks += [self.target_policy]
         return networks
 
     def get_snapshot(self):
@@ -482,9 +446,9 @@ class GaussianTrainer(SACTrainer):
         data["qfs_optims_state_dicts"] = qfs_optims_state_dicts
         data["target_qfs_state_dicts"] = target_qfs_state_dicts
 
-        if self.mean_update:
-            data["target_policy_state_dict"] = self.target_policy.state_dict()
-            data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
+        # if self.mean_update:
+        data["target_policy_state_dict"] = self.target_policy.state_dict()
+        data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
         return data
 
     def restore_from_snapshot(self, ss):
@@ -514,9 +478,9 @@ class GaussianTrainer(SACTrainer):
         self._n_train_steps_total = ss['_n_train_steps_total']
         self._need_to_update_eval_statistic = ss['_need_to_update_eval_statistics']
 
-        if self.mean_update:
-            self.target_policy.load_state_dict(ss["target_policy_state_dict"])
-            self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])
+        # if self.mean_update:
+        self.target_policy.load_state_dict(ss["target_policy_state_dict"])
+        self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])
 
     def obj_func(self, states, actions, upper_bound=False):
         qs = self.q(states, actions)
@@ -524,10 +488,7 @@ class GaussianTrainer(SACTrainer):
             stds = qs[:, 1].unsqueeze(-1)
             qs = qs[:, 0].unsqueeze(-1)
         else:
-            if self.pac:
-                stds = self.std_2(states, actions)
-            else:
-                stds = self.std(states, actions)
+            stds = self.std(states, actions)
         if upper_bound:
             obj = qs + self.standard_bound * stds
         else:
