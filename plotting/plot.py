@@ -13,6 +13,7 @@ def running_mean(x, N):
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
 envs = ['riverswim']
+envs = ['point']
 settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts']
 #settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', 'g-oac_priority', 'p-oac_priority' ]
 #settings = ['p-oac_priority']
@@ -22,6 +23,11 @@ settings = ['global/counts/g-oac_', 'global/mean_update/g-oac_', 'global/g-oac_'
             'mean_update_counts/g-oac_', 'counts/g-oac_', 'mean_update_/g-oac_', 'g-oac_',
             'oac_', 'sac_'
             ]  #'oac_', 'sac_', 'global/mean_update_counts/g-oac_',
+
+settings = [
+            'oac_', 'sac_', 'p-oac_', 'global/counts/p-oac_', 'global/mean_update_counts/p-oac_/archive',
+            'global/mean_update_counts/p-oac_'
+            ]
 # settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
 #             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
 #             'oac_', 'sac_'
@@ -57,7 +63,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 5
+subsample = 1
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -118,10 +124,10 @@ for env in envs:
                 else:
                     label = None
                 ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
-                # if n > 1:
-                #     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
-                #                          mean + 2 * (std / np.sqrt(n)),
-                #                  alpha=0.2, color=colors[s])
+                if n > 1:
+                    ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
+                                         mean + 2 * (std / np.sqrt(n)),
+                                 alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         # if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
         #     ax[col // n_col][col % n_col].set_ylim((-10000, 0))
@@ -130,7 +136,7 @@ for env in envs:
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         col += 1
         plot_count += 1
-    fig.legend(loc='lower center', ncol=len(settings)//2)
+    fig.legend(loc='lower center', ncol=max(len(settings)//2, 1))
     fig.savefig(env + '.png')
     plt.show()
 

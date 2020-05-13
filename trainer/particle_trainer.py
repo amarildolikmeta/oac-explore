@@ -204,10 +204,12 @@ class ParticleTrainer(SACTrainer):
         ## Do the inverse ordering to give each head the correct targets wrt
         # the specific quantile they represent for each sample in the batch
 
-        targets_1 = reorder_and_match(q_target, qs_indexes)
-        targets = targets_1
+        #targets_1 = reorder_and_match(q_target, qs_indexes)
+        #targets = targets_1
+
         #assert (torch.gather(targets_1, 0, qs_indexes) - targets).isclose(torch.Tensor(0)).all()
-        #qs = sorted_qs
+        qs = sorted_qs
+        targets = q_target
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())

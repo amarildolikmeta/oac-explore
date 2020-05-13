@@ -133,7 +133,7 @@ def domain_to_env(name):
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
         from envs.river_swim_continuous import RiverSwimContinuous
-        # from envs.point import PointEnv
+        from envs.point import PointEnv
         from envs.lqg1d import LQG1D
         from envs.cliff_continuous_mono import CliffWorldContinuousMono
         from envs.cliff_continuous import CliffWorldContinuous
@@ -147,7 +147,7 @@ def domain_to_env(name):
             'cartpole': Cartpole,
             'mountain': MountainCar,
             'riverswim': RiverSwimContinuous,
-            # 'point': PointEnv,
+            'point': PointEnv,
             'lqg': LQG1D,
             'cliff': CliffWorldContinuous,
             'cliff_mono': CliffWorldContinuousMono
@@ -156,7 +156,7 @@ def domain_to_env(name):
         from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         from envs.river_swim_continuous import RiverSwimContinuous
-        #from envs.point import PointEnv
+        from envs.point import PointEnv
         from envs.lqg1d import LQG1D
         from envs.cliff_continuous_mono import CliffWorldContinuousMono
         from envs.cliff_continuous import CliffWorldContinuous
@@ -167,8 +167,8 @@ def domain_to_env(name):
             'riverswim': RiverSwimContinuous,
             'lqg': LQG1D,
             'cliff': CliffWorldContinuous,
-            'cliff_mono': CliffWorldContinuousMono
-            #'point':PointEnv
+            'cliff_mono': CliffWorldContinuousMono,
+            'point':PointEnv
         }[name]
 
 
@@ -187,6 +187,7 @@ def domain_to_epoch(name):
         'lqg': 200,
         'cliff': 200,
         'cliff_mono': 200,
+        'point': 400,
     }[name]
 
 

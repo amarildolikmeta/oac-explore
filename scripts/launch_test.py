@@ -11,9 +11,9 @@ from utils.pythonplusplus import load_gzip_pickle
 
 
 ts = '1584884279.5007188'
-ts = '1586873577.93722'
+ts = '1589352957.4422379'
 iter = 190
-path = '../data/point_hard/p-oac_priority/' + ts
+path = '../data/point/sac_/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))

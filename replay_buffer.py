@@ -182,7 +182,7 @@ class ReplayBufferCount(ReplayBuffer):
             probs = 1 / (self._counts[:self._size] + 1)
             probs /= probs.sum()
 
-            indices = np.random.choice(np.arange(self._size), size=batch_size, p=probs[:,0])
+            indices = np.random.choice(np.arange(self._size), size=batch_size, p=probs[:, 0])
         else:
             indices = np.random.randint(0, self._size, batch_size)
         batch = dict(
