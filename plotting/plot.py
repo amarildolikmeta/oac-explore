@@ -31,6 +31,8 @@ settings = ['oac_', 'sac_',
             'p-oac_', 'p-oac_/narrower', 'global/counts/p-oac_',  'global/mean_update_counts/p-oac_',
             'mean_update_counts/g-oac_','global/mean_update_counts/g-oac_',
             ]
+settings = ['oac_', 'sac_',  'p-oac_',  'mean_update_/p-oac_', 'counts/p-oac_', 'mean_update_counts/p-oac_'
+            ]
 # settings = ['global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'oac_', 'sac_']
 # settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
 #             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
@@ -69,7 +71,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 10
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -140,6 +142,8 @@ for env in envs:
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
+        if col // n_col in [0, 2]:
+            ax[col // n_col][col % n_col].set_ylim((-6000, -1000))
         col += 1
         plot_count += 1
     fig.legend(loc='lower center', ncol=max(len(settings)//2, 1))
