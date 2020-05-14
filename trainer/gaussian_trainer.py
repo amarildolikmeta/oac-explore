@@ -41,7 +41,9 @@ class GaussianTrainer(SACTrainer):
             mellow_max=False,
             counts=False,
             mean_update=False,
-            global_opt=False
+            global_opt=False,
+            std_soft_update=False,
+            std_soft_update_prob=0.,
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -77,6 +79,12 @@ class GaussianTrainer(SACTrainer):
         self.counts = counts
         self.mean_update = mean_update
         self.global_opt = global_opt
+
+        self.std_soft_update = std_soft_update
+        self.std_soft_update_prob = std_soft_update_prob
+
+        assert not self.counts or not self.std_soft_update
+
         if share_layers:
             self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
@@ -180,8 +188,10 @@ class GaussianTrainer(SACTrainer):
         next_obs = batch['next_observations']
         if self.counts:
             counts = batch['counts']
-            discount = torch.ones_like(counts)
-            discount[counts == 0] = self.discount
+            #discount = torch.ones_like(counts_old)
+            #discount[counts_old == 0] = self.discount
+            discount = self.discount
+            #print(torch.max(batch['counts_old']))
         else:
             discount = self.discount
 
@@ -210,7 +220,14 @@ class GaussianTrainer(SACTrainer):
             q_preds = q_preds[:, 0].unsqueeze(-1)
             target_stds = target_q_values[:, 1].unsqueeze(-1)
             target_q_values = target_q_values[:, 0].unsqueeze(-1)
-            std_target = (1. - terminals) * discount * target_stds
+
+            if self.std_soft_update:
+                current_stds = std_preds.detach()
+                next_stds = (1. - terminals) * discount * target_stds
+                std_target = self.std_soft_update_prob * next_stds + (1 - self.std_soft_update_prob) * current_stds
+            else:
+                std_target = (1. - terminals) * discount * target_stds
+
             q_target = self.reward_scale * rewards + \
                        (1. - terminals) * self.discount * target_q_values
             loss = 0
@@ -250,7 +267,21 @@ class GaussianTrainer(SACTrainer):
             else:
                 std_preds = self.std(obs, actions)
                 target_stds = self.std_target(next_obs, new_next_actions)
-                std_target = (1. - terminals) * discount * target_stds
+
+                if self.counts:
+                    current_stds = std_preds.detach()
+                    next_stds = (1. - terminals) * discount * target_stds
+                    std_target = (counts == 0) * next_stds + (counts > 0) * current_stds
+                elif self.std_soft_update:
+                    #print(self.std_soft_update_prob)
+                    #print('doing soft update')
+
+                    current_stds = std_preds.detach()
+                    next_stds = (1. - terminals) * discount * target_stds
+                    std_target = self.std_soft_update_prob * next_stds + (1 - self.std_soft_update_prob) * current_stds
+                else:
+                    std_target = (1. - terminals) * discount * target_stds
+
 
                 std_loss = self.qf_criterion(std_preds, std_target.detach())
                 self.std_optimizer.zero_grad()

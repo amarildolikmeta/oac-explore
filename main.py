@@ -328,6 +328,9 @@ def get_cmd_args():
     parser.add_argument('--policy_lr', type=float, default=3E-4)
     parser.add_argument('--qf_lr', type=float, default=3E-4)
     parser.add_argument('--sigma_noise', type=float, default=0.0)
+
+    parser.add_argument('--std_soft_update', action="store_true")
+
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
     parser.add_argument('--delta', type=float, default=0.95)
@@ -367,7 +370,7 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
                   ('mean_update_' if args.mean_update else '') + \
                   ('counts/' if args.counts else '') + \
                   ('/' if args.mean_update and not args.counts else '') + \
-                   args.alg + '_' + el + '/' + str(start_time) + '/'
+                   args.alg + ('_std' if args.std_soft_update else '') + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
 
@@ -463,6 +466,15 @@ if __name__ == "__main__":
     variant['r_min'] = args.r_min
     variant['r_max'] = args.r_max
     variant['sigma_noise'] = args.sigma_noise
+
+    variant['trainer_kwargs']['std_soft_update'] = args.std_soft_update
+    N_expl = variant['algorithm_kwargs']['num_expl_steps_per_train_loop']
+    N_train = variant['algorithm_kwargs']['num_trains_per_train_loop']
+    B = variant['algorithm_kwargs']['batch_size']
+    N_updates = (N_train * B) / N_expl
+    std_soft_update_prob = 2 / (N_updates * (N_updates + 1))
+    variant['trainer_kwargs']['std_soft_update_prob'] = std_soft_update_prob
+    #print("Prob %s" % variant['trainer_kwargs']['std_soft_update_prob'])
 
     if args.no_resampling:
         variant['algorithm_kwargs']['num_trains_per_train_loop'] = 500
