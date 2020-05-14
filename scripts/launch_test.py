@@ -14,6 +14,10 @@ ts = '1584884279.5007188'
 ts = '1589352957.4422379'
 iter = 190
 path = '../data/point/sac_/' + ts
+ts = '1589388954.4973073'
+path = '../data/point/mean_update_counts/p-oac_/' + ts
+ts = '1589393077.7194996'
+path = '../data/point/hard/oac_/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -95,7 +99,7 @@ for i in range(10):
     t = 0
     while not done and t < 300:
         expl_env.render()
-        if alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac'] and variant['trainer_kwargs']['mean_update'] and False:
+        if hasattr(trainer, 'target_policy'):
             a, agent_info = trainer.target_policy.get_action(s, deterministic=True)
         else:
             a, agent_info = trainer.policy.get_action(s, deterministic=True)

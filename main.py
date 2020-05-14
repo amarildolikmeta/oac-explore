@@ -267,8 +267,6 @@ def experiment(variant, prev_exp_state=None):
 
         remote_eval_path_collector.restore_from_snapshot(
             prev_exp_state['evaluation_remote'])
-        remote_eval_path_collector.set_global_pkg_rng_state(
-            prev_exp_state['evaluation_remote_rng_state'])
 
         replay_buffer.restore_from_snapshot(prev_exp_state['replay_buffer'])
 
@@ -301,7 +299,7 @@ def get_cmd_args():
     parser.add_argument('--share_layers', action="store_true")
     parser.add_argument('--mean_update', action="store_true")
     parser.add_argument('--counts', action="store_true", help="count the samples in replay buffer")
-    parser.add_argument('--log_dir', type=str, default='./data/')
+    parser.add_argument('--log_dir', type=str, default='./data')
     parser.add_argument('--max_path_length', type=int, default=100)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
     parser.add_argument('--epochs', type=int, default=200)
@@ -344,6 +342,7 @@ def get_cmd_args():
     parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--clip_action', dest='clip_action', action='store_true')
     parser.add_argument('--no-clip_action', dest='clip_action', action='store_false')
+    parser.add_argument('--load_from', type=str, default='')
     parser.set_defaults(clip_action=True)
 
     args = parser.parse_args()
@@ -363,11 +362,13 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
         else:
             el = ''
         log_dir = args.log_dir + '/' + args.domain + '/' + \
+                  (args.difficulty + '/' if args.domain == 'point' else '') + \
+                  (args.dim + '/' if args.domain == 'riverswim' else '') + \
                   ('global/' if args.global_opt else '') + \
                   ('mean_update_' if args.mean_update else '') + \
                   ('counts/' if args.counts else '') + \
                   ('/' if args.mean_update and not args.counts else '') + \
-                   args.alg + '_' + el + '/' + str(start_time) + '/'
+                  args.alg + '_' + el + '/' + str(start_time) + '/'
 
     return log_dir
 
@@ -406,6 +407,8 @@ if __name__ == "__main__":
     args = get_cmd_args()
 
     variant['log_dir'] = get_log_dir(args)
+    if args.load_from != '':
+        variant['log_dir'] = args.load_from
 
     variant['seed'] = args.seed
     variant['domain'] = args.domain

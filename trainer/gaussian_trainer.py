@@ -66,6 +66,7 @@ class GaussianTrainer(SACTrainer):
         std = (q_max - q_min) / np.sqrt(12)
         log_std = np.log(std)
         self.delta = delta
+        self.std_init = std
         self.n_estimators = n_estimators
         self.qfs = []
         self.qf_optimizers = []
@@ -199,6 +200,7 @@ class GaussianTrainer(SACTrainer):
                 std_target = std_target * factor + (1 - factor) * std_preds
             q_target = self.reward_scale * rewards + \
                        (1. - terminals) * self.discount * target_q_values
+            std_target = torch.clamp(std_target, 0, self.std_init)
             loss = 0
             q_loss = self.qf_criterion(q_preds, q_target.detach())
             loss += q_loss
@@ -224,6 +226,8 @@ class GaussianTrainer(SACTrainer):
                 factor = torch.zeros_like(counts)
                 factor[counts == 0] = 1
                 std_target = std_target * factor + (1 - factor) * std_preds
+
+            std_target = torch.clamp(std_target, 0, self.std_init)
             std_loss = self.qf_criterion(std_preds, std_target.detach())
             self.std_optimizer.zero_grad()
             std_loss.backward(retain_graph=True)

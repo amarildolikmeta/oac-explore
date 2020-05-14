@@ -210,7 +210,13 @@ class ParticleTrainer(SACTrainer):
         qs = sorted_qs
         targets = q_target
 
-        #clip targets
+        #rescale targets
+        q_range = targets[-1] - targets[0]
+        factor = torch.ones_like(q_range)
+        factor[q_range > self.q_max - self.q_min] = 0
+        max_spread = self.q_max - self.q_min
+        q_mean = torch.mean(targets, dim=0)
+        targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / q_range) + q_mean)
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())
