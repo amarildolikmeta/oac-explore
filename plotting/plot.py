@@ -13,27 +13,29 @@ def running_mean(x, N):
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
 envs = ['riverswim']
-envs = ['point']
-settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts']
+#envs = ['point']
+settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts_old', 'p-oac-5-counts_old']
 #settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', 'g-oac_priority', 'p-oac_priority' ]
 #settings = ['p-oac_priority']
-#settings = ['p-oac-counts'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
+#settings = ['p-oac-counts_old'  ]#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
 #settings = [ 'p-oac_',  'g-oac_', 'p-oac_counts', 'g-oac_counts', 'p-oac_means', 'g-oac_means', 'p-oac_means_counts', 'g-oac_means_counts']#, ,  'oac','g-oac-ensemble', 'p-oac-ensemble''oac', 'sac',
-settings = ['global/counts/g-oac_', 'global/mean_update/g-oac_', 'global/g-oac_', 'global/mean_update_counts/g-oac_',
-            'mean_update_counts/g-oac_', 'counts/g-oac_', 'mean_update_/g-oac_', 'g-oac_',
+settings = ['global/counts_old/g-oac_', 'global/mean_update/g-oac_', 'global/g-oac_', 'global/mean_update_counts/g-oac_',
+            'mean_update_counts/g-oac_', 'counts_old/g-oac_', 'mean_update_/g-oac_', 'g-oac_',
             'oac_', 'sac_'
             ]  #'oac_', 'sac_', 'global/mean_update_counts/g-oac_',
 
 settings = [
-            'oac_', 'sac_', 'p-oac_', 'global/counts/p-oac_', 'global/mean_update_counts/p-oac_/archive',
+            'oac_', 'sac_', 'p-oac_', 'global/counts_old/p-oac_', 'global/mean_update_counts/p-oac_/archive',
             'global/mean_update_counts/p-oac_'
             ]
-# settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
-#             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
+
+settings = ['p-oac_', 'g-oac_', 'p-oac_std_', 'g_oac_std_old', 'counts/g-oac_', 'counts/p-oac_']
+# settings = ['global/counts_old/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
+#             'mean_update_counts/p-oac_', 'counts_old/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
 #             'oac_', 'sac_'
 #             ]
-# settings = ['global/counts/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts/p-oac_',
-#             'global/counts/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts/g-oac_',
+# settings = ['global/counts_old/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts_old/p-oac_',
+#             'global/counts_old/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts_old/g-oac_',
 #             'oac_', 'sac_'
 #             ]
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
@@ -63,7 +65,7 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 20
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -72,8 +74,8 @@ for env in envs:
         for s, setting in enumerate(settings):
             path = dir + env + '/' + setting + '/*/progress.csv'
             paths = glob.glob(path)
-            # print("Path:", path)
-            # print("Paths:", paths)
+            print("Path:", path)
+            print("Paths:", paths)
             min_rows = np.inf
             results = []
             final_results = []
