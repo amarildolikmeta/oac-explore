@@ -38,7 +38,9 @@ class ParticleTrainer(SACTrainer):
             mellow_max=False,
             counts=False,
             mean_update=False,
-            global_opt=False
+            global_opt=False,
+            std_soft_update=False,
+            std_soft_update_prob=0.,
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -80,6 +82,12 @@ class ParticleTrainer(SACTrainer):
         self.counts = counts
         self.mean_update = mean_update
         self.global_opt = global_opt
+
+        self.std_soft_update = std_soft_update
+        self.std_soft_update_prob = std_soft_update_prob
+
+        assert not self.counts or not self.std_soft_update
+
         self.action_space = action_space
         if share_layers:
             for i in range(n_estimators):
@@ -191,12 +199,24 @@ class ParticleTrainer(SACTrainer):
 
         q_target = self.reward_scale * rewards + \
                    (1. - terminals) * discount * target_q_values
+
+        if self.std_soft_update:
+            current_q_values = sorted_qs.detach()
+            current_q_mean = torch.mean(current_q_values, dim=0)
+
+            next_q_values = self.reward_scale * rewards + (1. - terminals) * discount * target_q_values
+            next_q_values = next_q_values.detach()
+            next_q_mean = torch.mean(next_q_values, dim=0)
+
+            q_target = self.std_soft_update_prob * next_q_values + \
+                       (1 - self.std_soft_update_prob) * (current_q_values - current_q_mean + next_q_mean)
         if self.counts:
             counts = batch['counts']
             factor = torch.zeros_like(counts)
             factor[counts == 0] = 1
             q_target = (q_target * factor) + (1 - factor) * (sorted_qs - torch.mean(sorted_qs, dim=0) + torch.mean(q_target, dim=0))
             #assert ((q_target_2.std(dim=0) - q_target.std(dim=0)) == 0).all()
+
         qf_losses = []
         qf_loss = 0
 

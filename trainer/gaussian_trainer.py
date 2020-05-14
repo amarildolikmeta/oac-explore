@@ -41,7 +41,9 @@ class GaussianTrainer(SACTrainer):
             mellow_max=False,
             counts=False,
             mean_update=False,
-            global_opt=False
+            global_opt=False,
+            std_soft_update=False,
+            std_soft_update_prob=0.,
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -77,6 +79,12 @@ class GaussianTrainer(SACTrainer):
         self.counts = counts
         self.mean_update = mean_update
         self.global_opt = global_opt
+
+        self.std_soft_update = std_soft_update
+        self.std_soft_update_prob = std_soft_update_prob
+
+        assert not self.counts or not self.std_soft_update
+
         if share_layers:
             self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
             self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
@@ -160,12 +168,14 @@ class GaussianTrainer(SACTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
+
         # if self.counts:
         #     counts = batch['counts']
         #     discount = torch.ones_like(counts)
         #     discount[counts == 0] = self.discount
         # else:
         discount = self.discount
+
 
         """
         QF Loss
@@ -192,12 +202,21 @@ class GaussianTrainer(SACTrainer):
             q_preds = q_preds[:, 0].unsqueeze(-1)
             target_stds = target_q_values[:, 1].unsqueeze(-1)
             target_q_values = target_q_values[:, 0].unsqueeze(-1)
+
             std_target = (1. - terminals) * discount * target_stds
+
+            if self.std_soft_update:
+                current_stds = std_preds.detach()
+                next_stds = (1. - terminals) * discount * target_stds
+                std_target = self.std_soft_update_prob * next_stds + (1 - self.std_soft_update_prob) * current_stds
+
             if self.counts:
                 counts = batch['counts']
                 factor = torch.zeros_like(counts)
                 factor[counts == 0] = 1
                 std_target = std_target * factor + (1 - factor) * std_preds
+
+
             q_target = self.reward_scale * rewards + \
                        (1. - terminals) * self.discount * target_q_values
             std_target = torch.clamp(std_target, 0, self.std_init)
@@ -218,9 +237,16 @@ class GaussianTrainer(SACTrainer):
             q_loss.backward(retain_graph=True)
             self.q_optimizer.step()
             # std network loss
+
             std_preds = self.std(obs, actions)
             target_stds = self.std_target(next_obs, new_next_actions)
             std_target = (1. - terminals) * discount * target_stds
+
+            if self.std_soft_update:
+                current_stds = std_preds.detach()
+                next_stds = (1. - terminals) * discount * target_stds
+                std_target = self.std_soft_update_prob * next_stds + (1 - self.std_soft_update_prob) * current_stds
+
             if self.counts:
                 counts = batch['counts']
                 factor = torch.zeros_like(counts)
