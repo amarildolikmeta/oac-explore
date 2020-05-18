@@ -31,8 +31,12 @@ settings = ['oac_', 'sac_',
             'p-oac_', 'p-oac_/narrower', 'global/counts/p-oac_',  'global/mean_update_counts/p-oac_',
             'mean_update_counts/g-oac_','global/mean_update_counts/g-oac_',
             ]
-settings = ['oac_', 'sac_',  'p-oac_',  'mean_update_/p-oac_', 'counts/p-oac_', 'mean_update_counts/p-oac_'
-            ]
+settings = ['oac_', 'sac_',  'p-oac_',  'mean_update_/p-oac_', 'counts/p-oac_', 'mean_update_counts/p-oac_',
+            'mean_update_counts/g-oac_', 'mean_update_/p-oac_std_']
+settings = ['oac_', 'sac_','mean_update_/p-oac_std_', 'mean_update_counts/p-oac_',]#, 'mean_update_counts/p-oac_', 'mean_update_/p-oac_std_'
+
+settings = ['mean_update_counts/p-oac_/2_particles']
+# settings = ['mean_update_counts/g-oac_']
 # settings = ['global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'oac_', 'sac_']
 # settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
 #             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
@@ -67,11 +71,11 @@ field_to_label = {
     'trainer/Policy mu Mean': 'policy mu',
     'trainer/Policy log std Mean': 'policy std'
 }
-separate = False
+separate = True
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 10
+subsample = 1
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -117,7 +121,8 @@ for env in envs:
                 data = np.stack(final_results, axis=0)
                 n = data.shape[0]
                 #print(data)
-                mean = np.mean(data, axis=0)
+                mean = np.median(data, axis=0)
+                # mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
                 mean = running_mean(mean, subsample)
                 std = running_mean(std, subsample)
@@ -137,13 +142,13 @@ for env in envs:
                 #                          mean + 2 * (std / np.sqrt(n)),
                 #                  alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
-        # if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
-        #     ax[col // n_col][col % n_col].set_ylim((-10000, 0))
+        if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
+            ax[col // n_col][col % n_col].set_ylim((-10000, 0))
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
-        if col // n_col in [0, 2]:
-            ax[col // n_col][col % n_col].set_ylim((-6000, -1000))
+        # if col // n_col in [0, 2]:
+        #     ax[col // n_col][col % n_col].set_ylim((-6000, -1000))
         col += 1
         plot_count += 1
     fig.legend(loc='lower center', ncol=max(len(settings)//2, 1))

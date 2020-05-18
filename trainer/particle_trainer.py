@@ -236,13 +236,15 @@ class ParticleTrainer(SACTrainer):
         factor[q_range > self.q_max - self.q_min] = 0
         max_spread = self.q_max - self.q_min
         q_mean = torch.mean(targets, dim=0)
-        targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / q_range) + q_mean)
+        targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / (q_range + 1e-6)) + q_mean)
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())
                 qf_losses.append(q_loss)
                 qf_loss += q_loss
             self.qf_optimizers[0].zero_grad()
+            if torch.isnan(qf_loss).any():
+                print("What")
             qf_loss.backward(retain_graph=True)
             self.qf_optimizers[0].step()
         else:
@@ -348,7 +350,11 @@ class ParticleTrainer(SACTrainer):
                 upper_bound = sorted_qs[delta_index]
 
                 ##upper_bound (in some way)
+                if torch.isnan(upper_bound).any():
+                    print("What")
                 policy_loss = (-upper_bound).mean()
+                if torch.isnan(policy_loss).any():
+                    print("What")
                 self.policy_optimizer.zero_grad()
                 policy_loss.backward()
                 self.policy_optimizer.step()

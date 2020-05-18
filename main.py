@@ -344,9 +344,12 @@ def get_cmd_args():
     parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
     parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--clip_action', dest='clip_action', action='store_true')
-    parser.add_argument('--no-clip_action', dest='clip_action', action='store_false')
-    parser.add_argument('--load_from', type=str, default='')
+    parser.add_argument('--no_clip_action', dest='clip_action', action='store_false')
     parser.set_defaults(clip_action=True)
+    parser.add_argument('--entropy_tuning', dest='entropy_tuning', action='store_true')
+    parser.add_argument('--no_entropy_tuning', dest='entropy_tuning', action='store_false')
+    parser.set_defaults(entropy_tuning=True)
+    parser.add_argument('--load_from', type=str, default='')
 
     args = parser.parse_args()
 
@@ -438,7 +441,7 @@ if __name__ == "__main__":
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
     variant['optimistic_exp']['deterministic'] = args.deterministic_optimistic_exp
-
+    variant['trainer_kwargs']['use_automatic_entropy_tuning'] = args.entropy_tuning
     variant['trainer_kwargs']['discount'] = args.gamma
     variant['trainer_kwargs']['policy_lr'] = args.policy_lr
     variant['trainer_kwargs']['qf_lr'] = args.qf_lr
@@ -450,6 +453,7 @@ if __name__ == "__main__":
     if args.domain == 'lqg':
         variant['clip_action'] = False
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
+        variant['trainer_kwargs']['std_soft_update'] = args.std_soft_update
         variant['trainer_kwargs']['share_layers'] = args.share_layers
         variant['trainer_kwargs']['mean_update'] = args.mean_update
         variant['trainer_kwargs']['counts'] = args.counts
@@ -470,13 +474,13 @@ if __name__ == "__main__":
     variant['r_max'] = args.r_max
     variant['sigma_noise'] = args.sigma_noise
 
-    variant['trainer_kwargs']['std_soft_update'] = args.std_soft_update
-    N_expl = variant['algorithm_kwargs']['num_expl_steps_per_train_loop']
-    N_train = variant['algorithm_kwargs']['num_trains_per_train_loop']
-    B = variant['algorithm_kwargs']['batch_size']
-    N_updates = (N_train * B) / N_expl
-    std_soft_update_prob = 2 / (N_updates * (N_updates + 1))
-    variant['trainer_kwargs']['std_soft_update_prob'] = std_soft_update_prob
+    if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
+        N_expl = variant['algorithm_kwargs']['num_expl_steps_per_train_loop']
+        N_train = variant['algorithm_kwargs']['num_trains_per_train_loop']
+        B = variant['algorithm_kwargs']['batch_size']
+        N_updates = (N_train * B) / N_expl
+        std_soft_update_prob = 2 / (N_updates * (N_updates + 1))
+        variant['trainer_kwargs']['std_soft_update_prob'] = std_soft_update_prob
     #print("Prob %s" % variant['trainer_kwargs']['std_soft_update_prob'])
 
     if args.no_resampling:

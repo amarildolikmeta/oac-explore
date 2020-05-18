@@ -126,7 +126,7 @@ class SACTrainer(object):
             alpha = self.log_alpha.exp()
         else:
             alpha_loss = 0
-            alpha = 1
+            alpha = 0
 
         q_new_actions = torch.min(
             self.qf1(obs, new_obs_actions),
@@ -276,25 +276,25 @@ class SACTrainer(object):
         ]
 
     def get_snapshot(self):
-        return dict(
+        snapshot = dict(
             policy_state_dict=self.policy.state_dict(),
             policy_optim_state_dict=self.policy_optimizer.state_dict(),
-
             qf1_state_dict=self.qf1.state_dict(),
             qf1_optim_state_dict=self.qf1_optimizer.state_dict(),
             target_qf1_state_dict=self.target_qf1.state_dict(),
-
             qf2_state_dict=self.qf2.state_dict(),
             qf2_optim_state_dict=self.qf2_optimizer.state_dict(),
             target_qf2_state_dict=self.target_qf2.state_dict(),
-
-            log_alpha=self.log_alpha,
-            alpha_optim_state_dict=self.alpha_optimizer.state_dict(),
-
             eval_statistics=self.eval_statistics,
             _n_train_steps_total=self._n_train_steps_total,
             _need_to_update_eval_statistics=self._need_to_update_eval_statistics
             )
+
+        if self.use_automatic_entropy_tuning:
+            snapshot['log_alpha'] = self.log_alpha
+            snapshot['alpha_optim_state_dict'] = self.alpha_optimizer.state_dict()
+        return snapshot
+
         # qfs_state_dicts = []
         # qfs_optims_state_dicts = []
         # target_qfs_state_dicts = []
@@ -310,7 +310,6 @@ class SACTrainer(object):
 
 
     def restore_from_snapshot(self, ss):
-
         policy_state_dict, policy_optim_state_dict = ss['policy_state_dict'], ss['policy_optim_state_dict']
 
         self.policy.load_state_dict(policy_state_dict)
@@ -339,11 +338,10 @@ class SACTrainer(object):
         self.qf2.load_state_dict(qf2_state_dict)
         self.qf2_optimizer.load_state_dict(qf2_optim_state_dict)
         self.target_qf2.load_state_dict(target_qf2_state_dict)
-
-        log_alpha, alpha_optim_state_dict = ss['log_alpha'], ss['alpha_optim_state_dict']
-
-        self.log_alpha.data.copy_(log_alpha)
-        self.alpha_optimizer.load_state_dict(alpha_optim_state_dict)
+        if self.use_automatic_entropy_tuning:
+            log_alpha, alpha_optim_state_dict = ss['log_alpha'], ss['alpha_optim_state_dict']
+            self.log_alpha.data.copy_(log_alpha)
+            self.alpha_optimizer.load_state_dict(alpha_optim_state_dict)
 
         self.eval_statistics = ss['eval_statistics']
         self._n_train_steps_total = ss['_n_train_steps_total']

@@ -6,7 +6,7 @@ import numpy as np
 from os import path
 import gym
 import six
-
+import time
 try:
     import mujoco_py
 except ImportError as e:
@@ -84,6 +84,7 @@ class MujocoEnv(gym.Env):
         self.sim.data.ctrl[:] = ctrl
         for _ in range(n_frames):
             self.sim.step()
+            #time.sleep(.002)
 
     def render(self, mode='human', width=DEFAULT_SIZE, height=DEFAULT_SIZE):
         if mode == 'rgb_array':

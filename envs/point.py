@@ -24,8 +24,14 @@ class PointEnv(MujocoEnv, utils.EzPickle):
         action = np.clip(action, -1.0, 1.0)
         self.do_simulation(action, self.frame_skip)
         next_obs = self._get_obs()
+
         qpos = next_obs[:2]
         goal = [25.0, 0.0]
+        # qvel = next_obs[3:]
+        # #qpos_clipped = np.clip(qpos, -500, 500)
+        # self.set_state(np.concatenate([qpos_clipped, np.array([0])]), qvel)
+        # qpos = qpos_clipped
+        # next_obs = self._get_obs()
         reward = -np.linalg.norm(goal - qpos)
         return next_obs, reward, False, {}
 
