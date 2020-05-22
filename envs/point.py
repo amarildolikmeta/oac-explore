@@ -13,10 +13,13 @@ diff_to_path = {
 
 
 class PointEnv(MujocoEnv, utils.EzPickle):
-    def __init__(self, difficulty=None):
+    def __init__(self, difficulty=None, max_state=500, clip_state=False, terminal=False):
         if difficulty is None:
             difficulty = 'easy'
         model = diff_to_path[difficulty]
+        self.max_state = max_state
+        self.clip_state = clip_state
+        self.terminal = terminal
         MujocoEnv.__init__(self, model, 1)
         utils.EzPickle.__init__(self)
 
@@ -25,15 +28,19 @@ class PointEnv(MujocoEnv, utils.EzPickle):
         self.do_simulation(action, self.frame_skip)
         next_obs = self._get_obs()
 
-        qpos = next_obs[:2]
+        qpos = next_obs[:3]
         goal = [25.0, 0.0]
-        # qvel = next_obs[3:]
-        # #qpos_clipped = np.clip(qpos, -500, 500)
-        # self.set_state(np.concatenate([qpos_clipped, np.array([0])]), qvel)
-        # qpos = qpos_clipped
-        # next_obs = self._get_obs()
-        reward = -np.linalg.norm(goal - qpos)
-        return next_obs, reward, False, {}
+        if self.clip_state:
+            qvel = next_obs[3:]
+            qpos_clipped = np.clip(qpos, -self.max_state, self.max_state)
+            self.set_state(qpos_clipped, qvel)
+            qpos = qpos_clipped
+            next_obs = self._get_obs()
+        reward = -np.linalg.norm(goal - qpos[:2])
+        done = False
+        if reward >= -1. and self.terminal:
+            done = True
+        return next_obs, reward, done, {}
 
     def _get_obs(self):
         return np.concatenate([

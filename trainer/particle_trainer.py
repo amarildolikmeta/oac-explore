@@ -41,6 +41,7 @@ class ParticleTrainer(SACTrainer):
             global_opt=False,
             std_soft_update=False,
             std_soft_update_prob=0.,
+            train_bias=True
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -91,15 +92,15 @@ class ParticleTrainer(SACTrainer):
         self.action_space = action_space
         if share_layers:
             for i in range(n_estimators):
-                self.qfs.append(q_producer(bias=initial_values))
-                self.tfs.append(q_producer(bias=initial_values))
+                self.qfs.append(q_producer(bias=initial_values, train_bias=train_bias))
+                self.tfs.append(q_producer(bias=initial_values, train_bias=train_bias))
                 self.qf_optimizers.append(optimizer_class(
                     self.qfs[i].parameters(),
                     lr=qf_lr, ))
         else:
             for i in range(n_estimators):
-                self.qfs.append(q_producer(bias=initial_values[i]))
-                self.tfs.append(q_producer(bias=initial_values[i]))
+                self.qfs.append(q_producer(bias=initial_values[i], train_bias=train_bias))
+                self.tfs.append(q_producer(bias=initial_values[i], train_bias=train_bias))
                 self.qf_optimizers.append(optimizer_class(
                     self.qfs[i].parameters(),
                     lr=qf_lr,))
@@ -196,7 +197,7 @@ class ParticleTrainer(SACTrainer):
         num_target_out_of_order = torch.sum(torch.squeeze(target_qs_indexes) != normal_order)
         # target_q_values = torch.min(target_qs, dim=0)[0] - alpha * new_log_pi
         target_q_values = target_qs_sorted
-
+        # target_q_values = target_qs
         q_target = self.reward_scale * rewards + \
                    (1. - terminals) * discount * target_q_values
 
@@ -227,16 +228,16 @@ class ParticleTrainer(SACTrainer):
         #targets = targets_1
 
         #assert (torch.gather(targets_1, 0, qs_indexes) - targets).isclose(torch.Tensor(0)).all()
-        qs = sorted_qs
+        qs = sorted_qs    #TODO questo e solo per prova rimuovi commento per riordinare
         targets = q_target
 
         #rescale targets
-        q_range = targets[-1] - targets[0]
-        factor = torch.ones_like(q_range)
-        factor[q_range > self.q_max - self.q_min] = 0
-        max_spread = self.q_max - self.q_min
-        q_mean = torch.mean(targets, dim=0)
-        targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / (q_range + 1e-6)) + q_mean)
+        # q_range = targets[-1] - targets[0]
+        # factor = torch.ones_like(q_range)
+        # factor[q_range > self.q_max - self.q_min] = 0
+        # max_spread = self.q_max - self.q_min
+        # q_mean = torch.mean(targets, dim=0)
+        # targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / (q_range + 1e-6)) + q_mean)
         if self.share_layers:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())

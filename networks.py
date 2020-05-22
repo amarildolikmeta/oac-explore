@@ -26,7 +26,8 @@ class Mlp(nn.Module):
             hidden_init=ptu.fanin_init,
             b_init_value=0.1,
             bias=None,
-            positive=False
+            positive=False,
+            train_bias=True
     ):
         super().__init__()
 
@@ -55,6 +56,8 @@ class Mlp(nn.Module):
                 self.last_fc.bias.data = ptu.from_numpy(bias.astype(np.float32))
             else:
                 self.last_fc.bias.data.fill_(bias)
+        if not train_bias:
+            self.last_fc.bias.requires_grad = False
 
     def forward(self, input, return_preactivations=False):
         h = input

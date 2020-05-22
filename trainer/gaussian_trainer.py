@@ -22,8 +22,8 @@ class GaussianTrainer(SACTrainer):
             reward_scale=1.0,
             delta=0.95,
             policy_lr=1e-3,
-            qf_lr=1e-3,
-            std_lr=3e-3,
+            qf_lr=3e-4,
+            std_lr=3e-5,
             optimizer_class=optim.Adam,
             soft_target_tau=1e-2,
             target_update_period=1,
@@ -169,6 +169,20 @@ class GaussianTrainer(SACTrainer):
         actions = batch['actions']
         next_obs = batch['next_observations']
 
+        batch_size = terminals.shape[0]
+
+        rewards_fixed = rewards[:batch_size//2]
+        terminals_fixed = terminals[:batch_size//2]
+        obs_fixed = obs[:batch_size//2]
+        actions_fixed = actions[:batch_size//2]
+        next_obs_fixed = next_obs[:batch_size//2]
+
+        rewards = rewards[batch_size//2:]
+        terminals = terminals[batch_size//2:]
+        obs = obs[batch_size//2:]
+        actions = actions[batch_size//2:]
+        next_obs = next_obs[batch_size//2:]
+
         # if self.counts:
         #     counts = batch['counts']
         #     discount = torch.ones_like(counts)
@@ -181,6 +195,7 @@ class GaussianTrainer(SACTrainer):
         QF Loss
         """
         q_preds = self.q(obs, actions)
+        q_preds_fixed = self.q(obs_fixed, actions)
 
         # Make sure policy accounts for squashing
         # functions like tanh correctly!
@@ -188,9 +203,15 @@ class GaussianTrainer(SACTrainer):
             new_next_actions, _, _, new_log_pi, *_ = self.target_policy(
                 obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
             )
+            new_next_actions_fixed, _, _, new_log_pi_fixed, *_ = self.target_policy(
+                obs=next_obs_fixed, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
         else:
             new_next_actions, _, _, new_log_pi, *_ = self.policy(
                 obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+            new_next_actions_fixed, _, _, new_log_pi_fixed, *_ = self.policy(
+                obs=next_obs_fixed, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
             )
 
         target_q = self.q_target(next_obs, new_next_actions)
@@ -240,7 +261,9 @@ class GaussianTrainer(SACTrainer):
 
             std_preds = self.std(obs, actions)
             target_stds = self.std_target(next_obs, new_next_actions)
+            target_stds_fixed = self.std_target(next_obs_fixed, new_next_actions_fixed)
             std_target = (1. - terminals) * discount * target_stds
+            std_target_fixed = (1. - terminals_fixed) * target_stds_fixed
 
             if self.std_soft_update:
                 current_stds = std_preds.detach()
@@ -257,6 +280,13 @@ class GaussianTrainer(SACTrainer):
             std_loss = self.qf_criterion(std_preds, std_target.detach())
             self.std_optimizer.zero_grad()
             std_loss.backward(retain_graph=True)
+            self.std_optimizer.step()
+            # keep same for half
+            std_target_fixed = torch.clamp(std_target_fixed, 0, self.std_init)
+            std_preds_fixed = self.std(obs_fixed, actions_fixed)
+            std_loss_fixed = self.qf_criterion(std_preds_fixed, std_target_fixed.detach())
+            self.std_optimizer.zero_grad()
+            std_loss_fixed.backward(retain_graph=True)
             self.std_optimizer.step()
 
         """

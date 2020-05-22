@@ -29,19 +29,39 @@ settings = ['global/counts/g-oac_', 'global/mean_update/g-oac_', 'global/g-oac_'
 settings = ['oac_', 'sac_',
             'oac_/easy', 'sac_/easy', 'global/p-oac_', 'mean_update_counts/p-oac_',
             'p-oac_', 'p-oac_/narrower', 'global/counts/p-oac_',  'global/mean_update_counts/p-oac_',
-            'mean_update_counts/g-oac_','global/mean_update_counts/g-oac_',
+            'mean_update_counts/g-oac_',
             ]
 settings = ['oac_', 'sac_',  'p-oac_',  'mean_update_/p-oac_', 'counts/p-oac_', 'mean_update_counts/p-oac_',
             'mean_update_counts/g-oac_', 'mean_update_/p-oac_std_']
 settings = ['oac_', 'sac_','mean_update_/p-oac_std_', 'mean_update_counts/p-oac_',]#, 'mean_update_counts/p-oac_', 'mean_update_/p-oac_std_'
 
-settings = ['mean_update_counts/p-oac_/2_particles']
-# settings = ['mean_update_counts/g-oac_']
+settings = [
+            'oac_/_', 'mean_update_counts/p-oac_/8_particles', 'oac_/deterministic', 'oac_/no_entropy',
+            'mean_update_counts/p-oac_/2_particles', 'mean_update_counts/p-oac_/clipped_state',
+            'mean_update_counts/p-oac_/2_particles_narrow',]
+            # 'oac_/_',
+            # 'mean_update__priority_counts/p-oac_',]
+settings = ['mean_update_counts/p-oac_/8_particles',]
+settings = ['mean_update_counts/p-oac_/clip_50', 'oac_/clip_50', 'mean_update_counts/p-oac_/clip_25', 'oac_/clip_25',
+            'mean_update__priority_counts/p-oac_/clip_50']
+settings = [ 'mean_update_counts/p-oac_/clip_50', 'oac_/clip_50',]# 'mean_update_counts/p-oac_/2_particles', ]
 # settings = ['global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'oac_', 'sac_']
 # settings = ['global/counts/p-oac_', 'global/mean_update/p-oac_', 'global/p-oac_', 'global/mean_update_counts/p-oac_',
 #             'mean_update_counts/p-oac_', 'counts/p-oac_', 'mean_update_/p-oac_', 'p-oac_',
 #             'oac_', 'sac_'
 #             ]
+settings = [ 'mean_update_counts/p-oac_/test',]
+settings = [ 'terminal/oac_', 'mean_update_counts/p-oac_/terminal', 'mean_update_counts/p-oac_/clip_25']
+settings = ['mean_update_counts/p-oac_/clip_50', 'mean_update_counts/p-oac_/terminal',
+            'mean_update_/p-oac_/clip_50', 'mean_update_/g-oac_/clip_50',]
+settings = [ 'mean_update_/g-oac_/clip_50', 'mean_update_/g-oac_/fixed']
+settings = ['mean_update_counts/p-oac_/clip_50']
+settings = ['mean_update_/p-oac_/no_bias', 'mean_update_/p-oac_/no_sorting', 'mean_update_/p-oac_/clip_50',
+            'mean_update_/p-oac_/no_bias_shifted', 'terminal/mean_update_counts/p-oac_',]
+settings = ['terminal/oac_']
+
+# settings = [  'mean_update_/g-oac_/clip_50', 'mean_update_/g-oac_/fixed',]
+# settings = ['mean_update_counts/p-oac_/terminal']
 # settings = ['global/counts/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts/p-oac_',
 #             'global/counts/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts/g-oac_',
 #             'oac_', 'sac_'
@@ -52,8 +72,8 @@ colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', 
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
           'trainer/QF mean', 'trainer/QF std',
-          'exploration/Returns Max', 'remote_evaluation/Returns Max'
-]  # 'trainer/QF std 2']
+          'exploration/Returns Max', 'remote_evaluation/Returns Max',
+          'trainer/Policy Loss', 'trainer/' + 'QF' + str(7) + ' Loss']  # 'trainer/QF std 2']
 
 #
 # 'exploration/Returns Max', 'remote_evaluation/Returns Max',
@@ -69,13 +89,16 @@ field_to_label = {
     'exploration/Returns Max': 'online Max Return',
     'remote_evaluation/Returns Max': 'offline Max Return',
     'trainer/Policy mu Mean': 'policy mu',
-    'trainer/Policy log std Mean': 'policy std'
+    'trainer/Policy log std Mean': 'policy std',
+    'trainer/Policy Loss': 'policy loss',
+    'trainer/' + 'QF' + str(7) + ' Loss': 'upper bound loss'
 }
-separate = True
+separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
+subsample = 10
+max_rows = 2000
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -116,13 +139,15 @@ for env in envs:
                     results.append(res)
             if not separate and len(results) > 0:
                 print(len(results))
+                if min_rows > max_rows:
+                    min_rows = max_rows
                 for i, _ in enumerate(paths):
                     final_results.append(results[i][:min_rows])
                 data = np.stack(final_results, axis=0)
                 n = data.shape[0]
                 #print(data)
-                mean = np.median(data, axis=0)
-                # mean = np.mean(data, axis=0)
+                # mean = np.median(data, axis=0)
+                mean = np.mean(data, axis=0)
                 std = np.std(data, axis=0)
                 mean = running_mean(mean, subsample)
                 std = running_mean(std, subsample)
@@ -137,10 +162,10 @@ for env in envs:
                 else:
                     label = None
                 ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
-                # if n > 1:
-                #     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
-                #                          mean + 2 * (std / np.sqrt(n)),
-                #                  alpha=0.2, color=colors[s])
+                if n > 1:
+                    ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
+                                         mean + 2 * (std / np.sqrt(n)),
+                                 alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
             ax[col // n_col][col % n_col].set_ylim((-10000, 0))

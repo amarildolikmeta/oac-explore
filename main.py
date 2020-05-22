@@ -95,12 +95,13 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes, clip=True):
 
 
 def get_q_producer(obs_dim, action_dim, hidden_sizes, output_size=1):
-    def q_producer(bias=None, positive=False):
+    def q_producer(bias=None, positive=False, train_bias=True):
         return FlattenMlp(input_size=obs_dim + action_dim,
                           output_size=output_size,
                           hidden_sizes=hidden_sizes,
                           bias=bias,
-                          positive=positive)
+                          positive=positive,
+                          train_bias=train_bias)
 
     return q_producer
 
@@ -118,6 +119,9 @@ def experiment(variant, prev_exp_state=None):
         env_args['dim'] = variant['dim']
     if domain in ['point']:
         env_args['difficulty'] = variant['difficulty']
+        env_args['clip_state'] = variant['clip_state']
+        env_args['terminal'] = variant['terminal']
+        env_args['max_state'] = variant['max_state']
     if 'cliff' in domain:
         env_args['sigma_noise'] = variant['sigma_noise']
 
@@ -300,6 +304,7 @@ def get_cmd_args():
     parser.add_argument('--mean_update', action="store_true")
     parser.add_argument('--counts', action="store_true", help="count the samples in replay buffer")
     parser.add_argument('--log_dir', type=str, default='./data')
+    parser.add_argument('--suffix', type=str, default='')
     parser.add_argument('--max_path_length', type=int, default=100)
     parser.add_argument('--replay_buffer_size', type=float, default=1e4)
     parser.add_argument('--epochs', type=int, default=200)
@@ -322,12 +327,17 @@ def get_cmd_args():
     parser.add_argument('--difficulty', type=str, default='hard', choices=['easy',
                                                                            'medium',
                                                                            'hard',
-                                                                           "harder"])
+                                                                           "harder"]
+                        , help='only for point environment')
     parser.add_argument('--policy_lr', type=float, default=3E-4)
     parser.add_argument('--qf_lr', type=float, default=3E-4)
+    parser.add_argument('--std_lr', type=float, default=3E-5)
     parser.add_argument('--sigma_noise', type=float, default=0.0)
 
     parser.add_argument('--std_soft_update', action="store_true")
+    parser.add_argument('--clip_state', action="store_true", help='only for point environment')
+    parser.add_argument('--terminal', action="store_true", help='only for point environment')
+    parser.add_argument('--max_state', type=float, default=500., help='only for point environment')
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
@@ -350,6 +360,10 @@ def get_cmd_args():
     parser.add_argument('--no_entropy_tuning', dest='entropy_tuning', action='store_false')
     parser.set_defaults(entropy_tuning=True)
     parser.add_argument('--load_from', type=str, default='')
+    parser.add_argument('--train_bias', dest='train_bias', action='store_true')
+    parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
+    parser.set_defaults(train_bias=True)
+    parser.add_argument('--soft_target_tau', type=float, default=3E-5)
 
     args = parser.parse_args()
 
@@ -369,12 +383,17 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
             el = ''
         log_dir = args.log_dir + '/' + args.domain + '/' + \
                   (args.difficulty + '/' if args.domain == 'point' else '') + \
+                  ('terminal' + '/' if args.terminal and  args.domain == 'point' else '') + \
                   (args.dim + '/' if args.domain == 'riverswim' else '') + \
                   ('global/' if args.global_opt else '') + \
                   ('mean_update_' if args.mean_update else '') + \
+                  ('_priority_' if args.priority_sample else '') + \
                   ('counts/' if args.counts else '') + \
                   ('/' if args.mean_update and not args.counts else '') + \
-                   args.alg + ('_std' if args.std_soft_update else '') + '_' + el + '/' + str(start_time) + '/'
+                   args.alg + ('_std' if args.std_soft_update else '') + '_' + el + '/' +\
+                  str(start_time) + '/' + args.suffix + '/'
+
+
 
     return log_dir
 
@@ -464,15 +483,24 @@ if __name__ == "__main__":
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max
             variant['algorithm_kwargs']['global_opt'] = args.global_opt
             variant['algorithm_kwargs']['save_fig'] = args.save_fig
+        if args.alg in ['p-oac']:
+            variant['trainer_kwargs']['train_bias'] = args.train_bias
+
 
     variant['alg'] = args.alg
     variant['dim'] = args.dim
     variant['difficulty'] = args.difficulty
+    variant['max_state'] = args.max_state
+    variant['clip_state'] = args.clip_state
+    variant['terminal'] = args.terminal
     variant['pac'] = args.pac
     variant['no_resampling'] = args.no_resampling
     variant['r_min'] = args.r_min
     variant['r_max'] = args.r_max
     variant['sigma_noise'] = args.sigma_noise
+
+
+    variant['trainer_kwargs']['soft_target_tau'] = args.soft_target_tau
 
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         N_expl = variant['algorithm_kwargs']['num_expl_steps_per_train_loop']

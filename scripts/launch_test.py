@@ -16,8 +16,8 @@ iter = 190
 path = '../data/point/sac_/' + ts
 ts = '1589388954.4973073'
 path = '../data/point/mean_update_counts/p-oac_/' + ts
-ts = '1589393077.7194996'
-path = '../data/point/hard/oac_/' + ts
+ts = '1589440408.0025933'
+path = '../data/point/hard/mean_update_counts/p-oac_/8_particles/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -37,6 +37,9 @@ if domain in ['riverswim']:
     env_args['dim'] = variant['dim']
 if domain in ['point']:
     env_args['difficulty'] = variant['difficulty']
+    env_args['max_state'] = 25
+    env_args['clip_state'] = True
+    env_args['terminal'] = True
 
 expl_env = env_producer(domain, seed, **env_args)
 eval_env = env_producer(domain, seed * 10 + 1, **env_args)
