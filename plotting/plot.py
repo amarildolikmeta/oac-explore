@@ -58,8 +58,11 @@ settings = [ 'mean_update_/g-oac_/clip_50', 'mean_update_/g-oac_/fixed']
 settings = ['mean_update_counts/p-oac_/clip_50']
 settings = ['mean_update_/p-oac_/no_bias', 'mean_update_/p-oac_/no_sorting', 'mean_update_/p-oac_/clip_50',
             'mean_update_/p-oac_/no_bias_shifted', 'terminal/mean_update_counts/p-oac_',]
-settings = ['terminal/oac_']
+settings = ['terminal/mean_update_counts/p-oac_']
+settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_d_0.55', 'terminal/p-oac_/narrower_20_p', 'terminal/oac_/25'] #'terminal/p-oac_/no_bias',
 
+settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_0.5', 'terminal/p-oac_/no_bias', 'terminal/oac_/25']
+settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_d_0.55', 'terminal/p-oac_/narrower_20_p', 'terminal/oac_/25']
 # settings = [  'mean_update_/g-oac_/clip_50', 'mean_update_/g-oac_/fixed',]
 # settings = ['mean_update_counts/p-oac_/terminal']
 # settings = ['global/counts/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts/p-oac_',
@@ -73,7 +76,7 @@ markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
           'trainer/QF mean', 'trainer/QF std',
           'exploration/Returns Max', 'remote_evaluation/Returns Max',
-          'trainer/Policy Loss', 'trainer/' + 'QF' + str(7) + ' Loss']  # 'trainer/QF std 2']
+          'remote_evaluation/Num Paths', 'trainer/' + 'QF' + str(7) + ' Loss']  # 'trainer/QF std 2']
 
 #
 # 'exploration/Returns Max', 'remote_evaluation/Returns Max',
@@ -91,14 +94,15 @@ field_to_label = {
     'trainer/Policy mu Mean': 'policy mu',
     'trainer/Policy log std Mean': 'policy std',
     'trainer/Policy Loss': 'policy loss',
-    'trainer/' + 'QF' + str(7) + ' Loss': 'upper bound loss'
+    'trainer/' + 'QF' + str(7) + ' Loss': 'upper bound loss',
+    'remote_evaluation/Num Paths': 'Number of episodes'
 }
 separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 10
-max_rows = 2000
+subsample = 1
+max_rows = 1000
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -162,10 +166,10 @@ for env in envs:
                 else:
                     label = None
                 ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
-                if n > 1:
-                    ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
-                                         mean + 2 * (std / np.sqrt(n)),
-                                 alpha=0.2, color=colors[s])
+                # if n > 1:
+                #     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
+                #                          mean + 2 * (std / np.sqrt(n)),
+                #                  alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
         if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
             ax[col // n_col][col % n_col].set_ylim((-10000, 0))

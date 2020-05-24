@@ -363,7 +363,7 @@ def get_cmd_args():
     parser.add_argument('--train_bias', dest='train_bias', action='store_true')
     parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
     parser.set_defaults(train_bias=True)
-    parser.add_argument('--soft_target_tau', type=float, default=3E-5)
+    parser.add_argument('--soft_target_tau', type=float, default=5E-3)
 
     args = parser.parse_args()
 
@@ -391,7 +391,7 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
                   ('counts/' if args.counts else '') + \
                   ('/' if args.mean_update and not args.counts else '') + \
                    args.alg + ('_std' if args.std_soft_update else '') + '_' + el + '/' +\
-                  str(start_time) + '/' + args.suffix + '/'
+                   args.suffix + '/' + str(start_time) + '/'
 
 
 
