@@ -483,8 +483,10 @@ if __name__ == "__main__":
             variant['trainer_kwargs']['mellow_max'] = args.mellow_max
             variant['algorithm_kwargs']['global_opt'] = args.global_opt
             variant['algorithm_kwargs']['save_fig'] = args.save_fig
-        if args.alg in ['p-oac']:
             variant['trainer_kwargs']['train_bias'] = args.train_bias
+
+        if args.alg in ['g-oac']:
+            variant['trainer_kwargs']['std_lr'] = args.std_lr
 
 
     variant['alg'] = args.alg

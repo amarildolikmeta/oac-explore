@@ -63,19 +63,25 @@ settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_d_0.55', 'termi
 
 settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_0.5', 'terminal/p-oac_/no_bias', 'terminal/oac_/25']
 settings = ['terminal/p-oac_/narrower', 'terminal/p-oac_/no_bias_d_0.55', 'terminal/p-oac_/narrower_20_p', 'terminal/oac_/25']
-# settings = [  'mean_update_/g-oac_/clip_50', 'mean_update_/g-oac_/fixed',]
-# settings = ['mean_update_counts/p-oac_/terminal']
+settings = ['terminal/p-oac_/narrower_10_p', 'terminal/p-oac_/narrower_15_p', 'terminal/p-oac_/narrower_20_p',
+            'terminal/p-oac_/narrower_25_p', 'terminal/p-oac_/narrower_30_p', 'terminal/p-oac_/narrower_40_p']
+settings = ['terminal/p-oac_/narrower_20_p']
 # settings = ['global/counts/p-oac_', 'global/mean_update_counts/p-oac_', 'mean_update_counts/p-oac_', 'counts/p-oac_',
 #             'global/counts/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts/g-oac_',
 #             'oac_', 'sac_'
 #             ]
+settings = ['terminal/oac_/delta_23', 'terminal/oac_/delta_40', 'terminal/oac_/delta_50','terminal/oac_/delta_80',
+            'terminal/oac_/delta_100']
+settings = ['terminal/p-oac_/narrower_10_p', 'terminal/p-oac_/narrower_15_p', 'terminal/p-oac_/narrower_20_p',
+            'terminal/p-oac_/narrower_25_p', 'terminal/p-oac_/narrower_30_p', 'terminal/p-oac_/narrower_40_p']
+
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
           'trainer/QF mean', 'trainer/QF std',
-          'exploration/Returns Max', 'remote_evaluation/Returns Max',
+          'trainer/QF Unordered', 'trainer/QF target Undordered',
           'remote_evaluation/Num Paths', 'trainer/' + 'QF' + str(7) + ' Loss']  # 'trainer/QF std 2']
 
 #
@@ -101,8 +107,8 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 1
-max_rows = 1000
+subsample = 100
+max_rows = 2000
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)

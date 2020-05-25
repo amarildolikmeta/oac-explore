@@ -44,6 +44,7 @@ class GaussianTrainer(SACTrainer):
             global_opt=False,
             std_soft_update=False,
             std_soft_update_prob=0.,
+            train_bias=True
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -86,8 +87,8 @@ class GaussianTrainer(SACTrainer):
         assert not self.counts or not self.std_soft_update
 
         if share_layers:
-            self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
-            self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True])
+            self.q = q_producer(bias=np.array([mean, log_std]), positive=[False, True], train_bias=train_bias)
+            self.q_target = q_producer(bias=np.array([mean, log_std]), positive=[False, True], train_bias=train_bias)
             self.q_optimizer = optimizer_class(
                 self.q.parameters(),
                 lr=qf_lr, )
@@ -99,8 +100,8 @@ class GaussianTrainer(SACTrainer):
             self.q_optimizer = optimizer_class(
                 self.q.parameters(),
                 lr=qf_lr, )
-            self.std = q_producer(bias=log_std, positive=True)
-            self.std_target = q_producer(bias=log_std, positive=True)
+            self.std = q_producer(bias=log_std, positive=True, train_bias=train_bias)
+            self.std_target = q_producer(bias=log_std, positive=True, train_bias=train_bias)
             self.std_optimizer = optimizer_class(
                 self.std.parameters(),
                 lr=std_lr, )
