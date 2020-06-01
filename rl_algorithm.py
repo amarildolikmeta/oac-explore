@@ -35,7 +35,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             deterministic=False,
             save_sampled_data=False,
             global_opt=False,
-            save_fig=False
+            save_fig=False,
+            trainer_UB=False
     ):
         super().__init__()
         """
@@ -60,6 +61,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         """
         self._start_epoch = 0
 
+
         """
         This class sets up the main training loop, so it needs reference to other
         high level objects in the algorithm
@@ -68,7 +70,9 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         and has their own responsibilities in saving and restoring their state for checkpointing
         """
         self.trainer = trainer
-
+        self.trainer_UB = None
+        if trainer_UB:
+            self.trainer_UB = trainer
         self.expl_data_collector = exploration_data_collector
         self.remote_eval_data_collector = remote_eval_data_collector
 
@@ -87,7 +91,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         behavioral_policy = self.trainer.policy
         # Fill the replay buffer to a minimum before training starts
         if self.min_num_steps_before_training > self.replay_buffer.num_steps_can_sample():
-            init_expl_paths = self.expl_data_collector.collect_new_paths(
+            init_expl_paths, returns = self.expl_data_collector.collect_new_paths(
                 policy=behavioral_policy,
                 max_path_length=self.max_path_length,
                 num_steps=self.min_num_steps_before_training,
@@ -95,7 +99,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             )
             self.replay_buffer.add_paths(init_expl_paths)
             self.expl_data_collector.end_epoch(-1)
-
+        best_eval = -np.inf
         for epoch in gt.timed_for(
                 trange(self._start_epoch, self.num_epochs),
                 save_itrs=True,
@@ -114,16 +118,21 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             #     deterministic_pol=True,
             #     pol_state_dict=pol_state_dict)
 
-            eval_exploration_paths = self.remote_eval_data_collector.collect_new_paths(
+            eval_exploration_paths, returns = self.remote_eval_data_collector.collect_new_paths(
                 target_policy,
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
                 deterministic_pol=True
             )
+            avg_ret = np.mean(returns)
+            if avg_ret > best_eval:
+                snapshot = self._get_snapshot(epoch)
+                logger.save_itr_params(epoch, snapshot, best=True)
+                best_eval = avg_ret
 
             for _ in range(self.num_train_loops_per_epoch):
-                new_expl_paths = self.expl_data_collector.collect_new_paths(
+                new_expl_paths, returns = self.expl_data_collector.collect_new_paths(
                     behavioral_policy,
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
@@ -133,6 +142,7 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                     optimistic_exploration_kwargs=dict(
                         policy=behavioral_policy,
                         qfs=self.trainer.qfs,
+                        trainer=self.trainer_UB,
                         hyper_params=self.optimistic_exp_hp
                     )
                 )
@@ -186,7 +196,13 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             #gt.stamp('saving')
 
         if self.save_sampled_data:
-            logger.save_sampled_data(self.ob_sampled, self.ac_sampled)
+            state_data = np.concatenate(self.ob_sampled)
+            action_data = np.concatenate(self.ac_sampled)
+            logger.save_sampled_data(state_data, action_data)
+            del self.ob_sampled
+            del self.ac_sampled
+            self.ob_sampled = []
+            self.ac_sampled = []
         logger.record_dict(_get_epoch_timings())
         logger.record_tabular('Epoch', epoch)
 

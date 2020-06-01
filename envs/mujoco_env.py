@@ -83,8 +83,15 @@ class MujocoEnv(gym.Env):
     def do_simulation(self, ctrl, n_frames):
         self.sim.data.ctrl[:] = ctrl
         for _ in range(n_frames):
-            self.sim.step()
-            #time.sleep(.002)
+            try:
+                self.sim.step()
+            except Exception as e:
+                next_obs = self._get_obs()
+                print("Error!")
+                print(next_obs)
+                print(ctrl)
+                print(e)
+                exit()
 
     def render(self, mode='human', width=DEFAULT_SIZE, height=DEFAULT_SIZE):
         if mode == 'rgb_array':

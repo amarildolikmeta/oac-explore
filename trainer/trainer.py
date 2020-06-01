@@ -9,7 +9,7 @@ from utils.core import np_to_pytorch_batch
 import utils.pytorch_util as ptu
 from utils.eval_util import create_stats_ordered_dict
 from typing import Iterable
-
+from utils.core import torch_ify
 
 class SACTrainer(object):
     def __init__(
@@ -102,6 +102,27 @@ class SACTrainer(object):
         batch = np_to_pytorch_batch(np_batch)
         batch['buffer'] = buffer
         self.train_from_torch(batch)
+
+    def predict(self, obs, action,  upper_bound=True, beta_UB=4.46, both_values=False):
+        if isinstance(obs, np.ndarray):
+            obs = torch_ify(obs)
+            action = torch_ify(action)
+        if len(obs.shape) == 1:
+            args = list(torch.unsqueeze(i, dim=0) for i in (obs, action))
+        else:
+            args = list(i for i in (obs, action))
+        Q1 = self.qfs[0](*args)
+        Q2 = self.qfs[1](*args)
+        mu_Q = (Q1 + Q2) / 2.0
+        sigma_Q = torch.abs(Q1 - Q2) / 2.0
+        if both_values:
+            return mu_Q, sigma_Q
+        if not upper_bound:
+            return mu_Q
+
+        Q_UB = mu_Q + beta_UB * sigma_Q
+        return Q_UB
+
 
     def train_from_torch(self, batch):
         rewards = batch['rewards']

@@ -43,6 +43,7 @@ class MdpPathCollector(object):
 
     ):
         paths = []
+        returns = []
         num_steps_collected = 0
         while num_steps_collected < num_steps:
             max_path_length_this_loop = min(  # Do not go over num_steps
@@ -71,10 +72,14 @@ class MdpPathCollector(object):
                 break
             num_steps_collected += path_len
             paths.append(path)
+            rewards = path['rewards']
+            ret = np.sum(rewards)
+            returns.append(ret)
+
         self._num_paths_total += len(paths)
         self._num_steps_total += num_steps_collected
         self._epoch_paths.extend(paths)
-        return paths
+        return paths, returns
 
     def get_epoch_paths(self):
         return self._epoch_paths

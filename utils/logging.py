@@ -287,9 +287,15 @@ class Logger(object):
         del self._prefixes[-1]
         self._prefix_str = ''.join(self._prefixes)
 
-    def save_itr_params(self, itr, params):
+    def save_itr_params(self, itr, params, best=False):
+
         if self._snapshot_dir:
-            if self._snapshot_mode == 'all':
+            if best:
+                file_name = osp.join(self._snapshot_dir,
+                                     'best.zip_pkl')
+                with open(file_name, 'wb') as f:
+                    pickle.dump(params, f)
+            elif self._snapshot_mode == 'all':
                 file_name = osp.join(self._snapshot_dir,
                                      'itr_%d.zip_pkl' % itr)
                 with open(file_name, 'wb') as f:
@@ -342,11 +348,15 @@ class Logger(object):
 
     def save_sampled_data(self, ob_sampled, ac_sampled):
         file_name = osp.join(
-            self._snapshot_dir, 'sampled_actions.pkl')
-        with open(file_name, 'wb') as f:
-            pickle.dump(ac_sampled, f)
+            self._snapshot_dir, 'sampled_states.csv')
+        with open(file_name, 'a') as f:
+            for i in range(ob_sampled.shape[0]):
+                f.write(','.join(["%.1f" % i for i in ob_sampled[i].tolist()])+'\n')
+                # pickle.dump(ac_sampled, f)
         file_name = osp.join(
-            self._snapshot_dir, 'sampled_states.pkl')
-        with open(file_name, 'wb') as f:
-            pickle.dump(ob_sampled, f)
+            self._snapshot_dir, 'sampled_actions.csv')
+        with open(file_name, 'a') as f:
+            for i in range(ac_sampled.shape[0]):
+                f.write(','.join(["%.1f" % i for i in ac_sampled[i].tolist()])+'\n')
+            # pickle.dump(ob_sampled, f)
 logger = Logger()

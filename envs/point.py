@@ -8,7 +8,9 @@ diff_to_path = {
     'easy': 'point.xml',
     'medium': 'point_medium.xml',
     'hard': 'point_hard.xml',
-    'harder': 'point_harder.xml'
+    'harder': 'point_harder.xml',
+    'maze': 'maze.xml',
+    'maze_easy': 'maze_easy.xml'
 }
 
 
@@ -19,6 +21,7 @@ class PointEnv(MujocoEnv, utils.EzPickle):
         model = diff_to_path[difficulty]
         self.max_state = max_state
         self.clip_state = clip_state
+        self.bounds = [[0, -9.7, 0], [25, 9.7, 0]]
         self.terminal = terminal
         MujocoEnv.__init__(self, model, 1)
         utils.EzPickle.__init__(self)
@@ -32,7 +35,7 @@ class PointEnv(MujocoEnv, utils.EzPickle):
         goal = [25.0, 0.0]
         if self.clip_state:
             qvel = next_obs[3:]
-            qpos_clipped = np.clip(qpos, -self.max_state, self.max_state)
+            qpos_clipped = np.clip(qpos, a_min=self.bounds[0], a_max=self.bounds[1])
             self.set_state(qpos_clipped, qvel)
             qpos = qpos_clipped
             next_obs = self._get_obs()
@@ -59,7 +62,7 @@ class PointEnv(MujocoEnv, utils.EzPickle):
 
 
 if __name__ == "__main__":
-    env = PointEnv()
+    env = PointEnv(difficulty='maze_easy')
     ob = env.reset()
     print(env.action_space)
     done = False

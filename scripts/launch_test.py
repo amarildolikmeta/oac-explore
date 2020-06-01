@@ -14,10 +14,10 @@ ts = '1584884279.5007188'
 ts = '1589352957.4422379'
 iter = 190
 path = '../data/point/sac_/' + ts
-ts = '1589388954.4973073'
+ts = '1590677750.0582957'
 path = '../data/point/mean_update_counts/p-oac_/' + ts
-ts = '1589440408.0025933'
-path = '../data/point/hard/mean_update_counts/p-oac_/8_particles/' + ts
+ts = '1590677750.0582957'
+path = '../data/point/hard/terminal/counts/p-oac_/no_bias/' + ts
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
@@ -37,9 +37,9 @@ if domain in ['riverswim']:
     env_args['dim'] = variant['dim']
 if domain in ['point']:
     env_args['difficulty'] = variant['difficulty']
-    env_args['max_state'] = 25
-    env_args['clip_state'] = True
-    env_args['terminal'] = True
+    env_args['max_state'] = variant['max_state']
+    env_args['clip_state'] = variant['clip_state']
+    env_args['terminal'] = variant['terminal']
 
 expl_env = env_producer(domain, seed, **env_args)
 eval_env = env_producer(domain, seed * 10 + 1, **env_args)
@@ -91,8 +91,15 @@ kwargs.update(dict(
 print(kwargs)
 kwargs.update(variant['trainer_kwargs'])
 trainer = trainer(**kwargs)
+# try:
+#     experiment = path + '/best.zip_pkl'
+#     exp = load_gzip_pickle(experiment)
+#     print(exp['epoch'])
+#     trainer.restore_from_snapshot(exp['trainer'])
+# except:
 experiment = path + '/params.zip_pkl'
 exp = load_gzip_pickle(experiment)
+print(exp['epoch'])
 trainer.restore_from_snapshot(exp['trainer'])
 
 for i in range(10):
@@ -100,7 +107,7 @@ for i in range(10):
     done = False
     ret = 0
     t = 0
-    while not done and t < 300:
+    while not done and t < 400:
         expl_env.render()
         if hasattr(trainer, 'target_policy'):
             a, agent_info = trainer.target_policy.get_action(s, deterministic=True)

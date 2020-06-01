@@ -4,19 +4,20 @@ from trainer.policies import TanhNormal
 import math
 import numpy as np
 
-def get_optimistic_exploration_action(ob_np, policy=None, qfs=None, hyper_params=None, deterministic=False):
+def get_optimistic_exploration_action(ob_np, policy=None, qfs=None, trainer=None, hyper_params=None, deterministic=False):
     if deterministic:
-        return get_optimistic_exploration_action_deterministic(ob_np, policy, qfs, hyper_params)
+        return get_optimistic_exploration_action_deterministic(ob_np, policy, qfs, hyper_params, trainer=trainer)
     else:
-        return get_optimistic_exploration_action_stochastic(ob_np, policy, qfs, hyper_params)
+        return get_optimistic_exploration_action_stochastic(ob_np, policy, qfs, hyper_params, trainer=trainer)
 
 
-def get_optimistic_exploration_action_stochastic(ob_np, policy=None, qfs=None, hyper_params=None):
+def get_optimistic_exploration_action_stochastic(ob_np, policy=None, qfs=None, hyper_params=None, trainer=None):
 
     assert ob_np.ndim == 1
 
     beta_UB = hyper_params['beta_UB']
     delta = hyper_params['delta']
+    share_layers = hyper_params['share_layers']
 
     ob = ptu.from_numpy(ob_np)
 
@@ -33,13 +34,28 @@ def get_optimistic_exploration_action_stochastic(ob_np, policy=None, qfs=None, h
     tanh_mu_T = torch.tanh(pre_tanh_mu_T)
 
     # Get the upper bound of the Q estimate
-    args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
-    Q1 = qfs[0](*args)
-    Q2 = qfs[1](*args)
-    mu_Q = (Q1 + Q2) / 2.0
-    sigma_Q = torch.abs(Q1 - Q2) / 2.0
 
-    Q_UB = mu_Q + beta_UB * sigma_Q
+    if trainer is not None:
+        Q_UB = trainer.predict(ob.unsqueeze(0), tanh_mu_T.unsqueeze(0), upper_bound=True, beta_UB=beta_UB)
+    else:
+        args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
+        Q1 = qfs[0](*args)
+        Q2 = qfs[1](*args)
+        mu_Q = (Q1 + Q2) / 2.0
+        sigma_Q = torch.abs(Q1 - Q2) / 2.0
+
+        # q_preds = []
+        # for i in range(len(qfs)):
+        #     q_preds.append(qfs[i](*args))
+        #
+        # qs = torch.stack(q_preds, dim=0)
+        #
+        # if share_layers:
+        #     qs = qs.permute(2, 1, 0)
+        # mu_Q = torch.mean(qs, dim=0)
+        # sigma_Q = torch.std(qs, dim=0)
+
+        Q_UB = mu_Q + beta_UB * sigma_Q
 
     # Obtain the gradient of Q_UB wrt to a
     # with a evaluated at mu_t
@@ -90,12 +106,13 @@ def get_optimistic_exploration_action_stochastic(ob_np, policy=None, qfs=None, h
     # stats for now
     return ac_np, {}
 
-def get_optimistic_exploration_action_deterministic(ob_np, policy=None, qfs=None, hyper_params=None):
+def get_optimistic_exploration_action_deterministic(ob_np, policy=None, qfs=None, hyper_params=None, trainer=None):
 
     assert ob_np.ndim == 1
 
     beta_UB = hyper_params['beta_UB']
     delta = hyper_params['delta']
+    share_layers = hyper_params['share_layers']
 
     ob = ptu.from_numpy(ob_np)
 
@@ -112,13 +129,25 @@ def get_optimistic_exploration_action_deterministic(ob_np, policy=None, qfs=None
     tanh_mu_T = torch.tanh(pre_tanh_mu_T)
 
     # Get the upper bound of the Q estimate
-    args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
-    Q1 = qfs[0](*args)
-    Q2 = qfs[1](*args)
-    mu_Q = (Q1 + Q2) / 2.0
-    sigma_Q = torch.abs(Q1 - Q2) / 2.0
+    if trainer is not None:
+        Q_UB = trainer.predict(ob, tanh_mu_T, upper_bound=True, beta_UB=beta_UB)
+    else:
+        args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
+        # Q1 = qfs[0](*args)
+        # Q2 = qfs[1](*args)
+        # mu_Q = (Q1 + Q2) / 2.0
+        # sigma_Q = torch.abs(Q1 - Q2) / 2.0
+        q_preds = []
+        for i in range(len(qfs)):
+            q_preds.append(qfs[i](*args))
 
-    Q_UB = mu_Q + beta_UB * sigma_Q
+        qs = torch.stack(q_preds, dim=0)
+        if share_layers:
+            qs = qs.permute(2, 1, 0)
+        mu_Q = torch.mean(qs, dim=0)
+        sigma_Q = torch.std(qs, dim=0)
+
+        Q_UB = mu_Q + beta_UB * sigma_Q
 
     # Obtain the gradient of Q_UB wrt to a
     # with a evaluated at mu_t

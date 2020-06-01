@@ -17,6 +17,7 @@ from trainer.particle_trainer import ParticleTrainer
 from trainer.gaussian_trainer import GaussianTrainer
 from trainer.gaussian_trainer_ts import GaussianTrainerTS
 from trainer.particle_trainer_ts import ParticleTrainerTS
+from trainer.particle_trainer_oac import ParticleTrainer as ParticleTrainerOAC
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
@@ -184,9 +185,13 @@ def experiment(variant, prev_exp_state=None):
             **variant['trainer_kwargs']
         )
     elif variant['alg'] == 'p-oac':
+        if variant['optimistic_exp']['should_use']:
+            trainer_class = ParticleTrainerOAC
+        else:
+            trainer_class = ParticleTrainer
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
-        trainer = ParticleTrainer(
+        trainer = trainer_class(
             policy_producer,
             q_producer,
             n_estimators=n_estimators,
@@ -327,7 +332,9 @@ def get_cmd_args():
     parser.add_argument('--difficulty', type=str, default='hard', choices=['easy',
                                                                            'medium',
                                                                            'hard',
-                                                                           "harder"]
+                                                                           "harder",
+                                                                           'maze',
+                                                                           'maze_easy']
                         , help='only for point environment')
     parser.add_argument('--policy_lr', type=float, default=3E-4)
     parser.add_argument('--qf_lr', type=float, default=3E-4)
@@ -341,7 +348,9 @@ def get_cmd_args():
 
     # optimistic_exp_hyper_param
     parser.add_argument('--beta_UB', type=float, default=0.0)
+    parser.add_argument('--trainer_UB', action='store_true')
     parser.add_argument('--delta', type=float, default=0.95)
+    parser.add_argument('--delta_oac', type=float, default=20.53)
     parser.add_argument('--deterministic_optimistic_exp', action='store_true')
     parser.add_argument('--no_resampling', action="store_true",
                         help="Samples are removed from replay buffer after being used once")
@@ -351,7 +360,7 @@ def get_cmd_args():
                         type=int, default=2000)
     parser.add_argument('--num_trains_per_train_loop', type=int, default=1000)
     parser.add_argument('--num_train_loops_per_epoch', type=int, default=1)
-    parser.add_argument('--num_eval_steps_per_epoch', type=int, default=5000)
+    parser.add_argument('--num_eval_steps_per_epoch', type=int, default=1000)
     parser.add_argument('--min_num_steps_before_training', type=int, default=1000)
     parser.add_argument('--clip_action', dest='clip_action', action='store_true')
     parser.add_argument('--no_clip_action', dest='clip_action', action='store_false')
@@ -362,6 +371,7 @@ def get_cmd_args():
     parser.add_argument('--load_from', type=str, default='')
     parser.add_argument('--train_bias', dest='train_bias', action='store_true')
     parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
+    parser.add_argument('--should_use',  action='store_true')
     parser.set_defaults(train_bias=True)
     parser.add_argument('--soft_target_tau', type=float, default=5E-3)
 
@@ -384,7 +394,7 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
         log_dir = args.log_dir + '/' + args.domain + '/' + \
                   (args.difficulty + '/' if args.domain == 'point' else '') + \
                   ('terminal' + '/' if args.terminal and  args.domain == 'point' else '') + \
-                  (args.dim + '/' if args.domain == 'riverswim' else '') + \
+                  (str(args.dim) + '/' if args.domain == 'riverswim' else '') + \
                   ('global/' if args.global_opt else '') + \
                   ('mean_update_' if args.mean_update else '') + \
                   ('_priority_' if args.priority_sample else '') + \
@@ -452,13 +462,21 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['batch_size'] = args.batch_size
     variant['algorithm_kwargs']['save_sampled_data'] = args.save_sampled_data
     variant['algorithm_kwargs']['num_train_loops_per_epoch'] = args.num_train_loops_per_epoch
+    variant['algorithm_kwargs']['trainer_UB'] = args.trainer_UB
 
     variant['delta'] = args.delta
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac', 'g-tsac',
                                                                                                       'p-tsac']
+    if not variant['optimistic_exp']['should_use']:
+        variant['optimistic_exp']['should_use'] = args.should_use
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
     variant['optimistic_exp']['delta'] = args.delta if args.alg in ['p-oac', 'oac', 'g-oac'] else 0
+    variant['optimistic_exp']['share_layers'] = False
+    if args.alg in ['p-oac']:
+        variant['optimistic_exp']['share_layers'] = args.share_layers
+    if args.should_use and args.alg in ['p-oac']:
+        variant['optimistic_exp']['delta'] = args.delta_oac
     variant['optimistic_exp']['deterministic'] = args.deterministic_optimistic_exp
     variant['trainer_kwargs']['use_automatic_entropy_tuning'] = args.entropy_tuning
     variant['trainer_kwargs']['discount'] = args.gamma

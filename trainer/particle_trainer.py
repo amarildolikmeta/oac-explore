@@ -63,7 +63,7 @@ class ParticleTrainer(SACTrainer):
                 self.delta_index = p
                 break
             if quantiles[p] > delta:
-                self.delta_index = p
+                self.delta_index = p - 1
                 break
         initial_values = np.linspace(q_min, q_max, n_estimators)
         self.share_layers = share_layers
@@ -359,7 +359,9 @@ class ParticleTrainer(SACTrainer):
                 self.policy_optimizer.zero_grad()
                 policy_loss.backward()
                 self.policy_optimizer.step()
-
+        """
+                    Update_target_policy
+                """
         # if self.mean_update:
         # if self.global_opt:
         #     # optimize_policy(self.target_policy, self.target_policy_optimizer,  batch['buffer'],
@@ -367,9 +369,7 @@ class ParticleTrainer(SACTrainer):
         #     #                 init_policy=self.init_target_policy, upper_bound=False)
         #     pass
         # else:
-        """
-            Update_target_policy
-        """
+
         target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
             obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
         )

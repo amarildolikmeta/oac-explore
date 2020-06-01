@@ -7,14 +7,19 @@ import glob
 def running_mean(x, N):
     divider = np.convolve(np.ones_like(x), np.ones((N,)), mode='same')
     return np.convolve(x, np.ones((N,)), mode='same') / divider
-
+env_to_bounds = {
+    'point/hard': (-6000, -1000),
+    'point/maze': (-10000, -5000),
+    'point/maze_easy': (-10000, -5000),
+}
 
 #dir = '../data/data_remote/'
 dir = '../data/'
 #envs = ['riverswim'] #,,'cartpole', 'mountain', 'riverswim'
-envs = ['riverswim']
+envs = ['riverswim/25']
 envs = ['point', 'point/easy', 'point/hard']
-envs = ['point/hard']
+envs = ['point/maze']
+envs = ['riverswim/25']
 
 settings = ['oac', 'sac', 'sac_no_entropy', 'p-oac', 'p-oac-counts', 'p-oac-5-counts']
 #settings = ['oac_', 'sac_', 'g-oac_', 'p-oac_', 'g-oac_2', 'p-oac_2', 'g-oac_priority', 'p-oac_priority' ]
@@ -70,10 +75,61 @@ settings = ['terminal/p-oac_/narrower_20_p']
 #             'global/counts/g-oac_', 'global/mean_update_counts/g-oac_', 'mean_update_counts/g-oac_', 'counts/g-oac_',
 #             'oac_', 'sac_'
 #             ]
-settings = ['terminal/oac_/delta_23', 'terminal/oac_/delta_40', 'terminal/oac_/delta_50','terminal/oac_/delta_80',
-            'terminal/oac_/delta_100']
+
 settings = ['terminal/p-oac_/narrower_10_p', 'terminal/p-oac_/narrower_15_p', 'terminal/p-oac_/narrower_20_p',
             'terminal/p-oac_/narrower_25_p', 'terminal/p-oac_/narrower_30_p', 'terminal/p-oac_/narrower_40_p']
+settings = ['terminal/mean_update_/p-oac_/narrower_10_p', 'terminal//mean_update_/p-oac_/narrower_15_p',
+            'terminal/mean_update_/p-oac_/narrower_20_p', 'terminal/mean_update_/p-oac_/narrower_25_p',
+            'terminal/mean_update_/p-oac_/narrower_30_p', 'terminal/mean_update_/p-oac_/narrower_40_p']
+
+
+# settings = ['terminal/g-oac_/range_5', 'terminal/g-oac_/range_10', 'terminal/g-oac_/range_20',
+#             'terminal/g-oac_/range_50', 'terminal/g-oac_/range_100', 'terminal/oac_/delta_50']
+settings = ['terminal/p-oac_/narrower_10_p', 'terminal/oac_/delta_50',
+            'terminal/p-oac_/oac_upper_and_policy',
+            'terminal/p-oac_/no_bias_d_0.55',]
+
+
+# settings = ['terminal/g-oac_/range_5', 'terminal/g-oac_/range_10', 'terminal/g-oac_/range_20',
+#             'terminal/g-oac_/range_50', 'terminal/g-oac_/range_100', 'terminal/p-oac_/narrower_10_p']
+
+settings = ['terminal/p-oac_/narrower_10_p', 'terminal/p-oac_/narrower_15_p', 'terminal/p-oac_/narrower_20_p',
+            'terminal/p-oac_/narrower_25_p', 'terminal/p-oac_/narrower_30_p', 'terminal/p-oac_/narrower_40_p']
+
+# settings = ['terminal/g-oac_/range_50']
+# settings = ['terminal/p-oac_/oac_mean_policy']
+# settings = [ 'terminal/oac_/delta_100']
+# settings = ['terminal/oac_/delta_23', 'terminal/oac_/delta_40', 'terminal/oac_/delta_50', 'terminal/oac_/delta_80',
+#             'terminal/oac_/delta_100']
+
+settings = ['terminal/p-oac_/no_bias_2', 'terminal/g-oac_/no_bias_2', 'terminal/oac_/25',
+            'terminal/p-oac_/no_bias', 'terminal/g-oac_/no_bias',]
+
+envs = ['riverswim/25']
+settings = ['mean_update_counts/p-oac_/no_bias_left',
+            'counts/p-oac_/no_bias_left',
+            'counts/p-oac_/bias',
+            'mean_update_counts/p-oac_/bias_',
+            'mean_update_counts/g-oac_/no_bias_',
+            'oac_/no_bias_']
+
+# settings = ['counts/p-oac_/no_bias_left']
+
+envs = ['point/maze_easy']
+settings = ['terminal/mean_update_counts/p-oac_/no_bias_2', 'terminal/p-oac_/no_bias_2',
+            'terminal/oac_/25',
+            'terminal/counts/p-oac_/no_bias_2']
+settings = ['terminal/mean_update_counts/p-oac_/no_bias_2',]
+#
+envs = ['point/hard']
+settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
+            'terminal/counts/p-oac_/no_bias_no_target', 'terminal/p-oac_/narrower_10_p']
+settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
+            'terminal/counts/p-oac_/large_buffer']
+#
+# settings = ['terminal/counts/p-oac_/no_bias_sampled', 'terminal/oac_/25']
+# settings = ['terminal/counts/p-oac_/no_bias',]
+# settings = ['terminal/p-oac_/oac_mean_policy',]
 
 # envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
 # settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
@@ -107,8 +163,8 @@ separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 100
-max_rows = 2000
+subsample = 50
+max_rows = 1100
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -117,7 +173,7 @@ for env in envs:
         for s, setting in enumerate(settings):
             path = dir + env + '/' + setting + '/*/progress.csv'
             paths = glob.glob(path)
-            # print("Path:", path)
+            print("Path:", path)
             # print("Paths:", paths)
             min_rows = np.inf
             results = []
@@ -172,13 +228,14 @@ for env in envs:
                 else:
                     label = None
                 ax[col // n_col][col % n_col].plot(x, mean, label=label, color=colors[s])
-                # if n > 1:
-                #     ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
-                #                          mean + 2 * (std / np.sqrt(n)),
-                #                  alpha=0.2, color=colors[s])
+                if n > 1:
+                    ax[col // n_col][col % n_col].fill_between(x, mean - 2 * (std / np.sqrt(n)),
+                                         mean + 2 * (std / np.sqrt(n)),
+                                 alpha=0.2, color=colors[s])
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
-        if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns']:
-            ax[col // n_col][col % n_col].set_ylim((-10000, 0))
+        if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns'] and 'point' in env:
+            bounds = env_to_bounds[env]
+            ax[col // n_col][col % n_col].set_ylim(bounds)
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})
