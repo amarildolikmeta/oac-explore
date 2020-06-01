@@ -187,8 +187,10 @@ def experiment(variant, prev_exp_state=None):
     elif variant['alg'] == 'p-oac':
         if variant['optimistic_exp']['should_use']:
             trainer_class = ParticleTrainerOAC
+            variant['trainer_kwargs']['deterministic'] = False
         else:
             trainer_class = ParticleTrainer
+            variant['trainer_kwargs']['deterministic'] = not variant['stochastic']
         q_min = variant['r_min'] / (1 - variant['trainer_kwargs']['discount'])
         q_max = variant['r_max'] / (1 - variant['trainer_kwargs']['discount'])
         trainer = trainer_class(
@@ -372,6 +374,7 @@ def get_cmd_args():
     parser.add_argument('--train_bias', dest='train_bias', action='store_true')
     parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
     parser.add_argument('--should_use',  action='store_true')
+    parser.add_argument('--stochastic',  action='store_true')
     parser.set_defaults(train_bias=True)
     parser.add_argument('--soft_target_tau', type=float, default=5E-3)
 
@@ -487,6 +490,7 @@ if __name__ == "__main__":
     variant['n_components'] = args.n_components
     variant['priority_sample'] = False
     variant['clip_action'] = args.clip_action
+    variant['stochastic'] = args.stochastic
     if args.domain == 'lqg':
         variant['clip_action'] = False
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:

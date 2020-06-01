@@ -39,21 +39,23 @@ def get_optimistic_exploration_action_stochastic(ob_np, policy=None, qfs=None, h
         Q_UB = trainer.predict(ob.unsqueeze(0), tanh_mu_T.unsqueeze(0), upper_bound=True, beta_UB=beta_UB)
     else:
         args = list(torch.unsqueeze(i, dim=0) for i in (ob, tanh_mu_T))
-        Q1 = qfs[0](*args)
-        Q2 = qfs[1](*args)
-        mu_Q = (Q1 + Q2) / 2.0
-        sigma_Q = torch.abs(Q1 - Q2) / 2.0
+        try:
+            Q1 = qfs[0](*args)
+            Q2 = qfs[1](*args)
+            mu_Q = (Q1 + Q2) / 2.0
+            sigma_Q = torch.abs(Q1 - Q2) / 2.0
+        except:
 
-        # q_preds = []
-        # for i in range(len(qfs)):
-        #     q_preds.append(qfs[i](*args))
-        #
-        # qs = torch.stack(q_preds, dim=0)
-        #
-        # if share_layers:
-        #     qs = qs.permute(2, 1, 0)
-        # mu_Q = torch.mean(qs, dim=0)
-        # sigma_Q = torch.std(qs, dim=0)
+            q_preds = []
+            for i in range(len(qfs)):
+                q_preds.append(qfs[i](*args))
+
+            qs = torch.stack(q_preds, dim=0)
+
+            if share_layers:
+                qs = qs.permute(2, 1, 0)
+            mu_Q = torch.mean(qs, dim=0)
+            sigma_Q = torch.std(qs, dim=0)
 
         Q_UB = mu_Q + beta_UB * sigma_Q
 

@@ -375,13 +375,13 @@ class ParticleTrainer(SACTrainer):
             policy_state_dict=self.policy.state_dict(),
             policy_optim_state_dict=self.policy_optimizer.state_dict(),
 
-            log_alpha=self.log_alpha,
-            alpha_optim_state_dict=self.alpha_optimizer.state_dict(),
-
             eval_statistics=self.eval_statistics,
             _n_train_steps_total=self._n_train_steps_total,
             _need_to_update_eval_statistics=self._need_to_update_eval_statistics
             )
+        if self.use_automatic_entropy_tuning:
+            data['alpha_optim_state_dict'] = self.alpha_optimizer.state_dict()
+            data['log_alpha'] = self.log_alpha
         qfs_state_dicts = []
         qfs_optims_state_dicts = []
         target_qfs_state_dicts = []
@@ -410,10 +410,10 @@ class ParticleTrainer(SACTrainer):
             self.qfs[i].load_state_dict(qfs_state_dicts[i])
             self.qf_optimizers[i].load_state_dict(qfs_optims_state_dicts[i])
             self.tfs[i].load_state_dict(target_qfs_state_dicts[i])
-
-        log_alpha, alpha_optim_state_dict = ss['log_alpha'], ss['alpha_optim_state_dict']
-        self.log_alpha.data.copy_(log_alpha)
-        self.alpha_optimizer.load_state_dict(alpha_optim_state_dict)
+        if self.use_automatic_entropy_tuning:
+            log_alpha, alpha_optim_state_dict = ss['log_alpha'], ss['alpha_optim_state_dict']
+            self.log_alpha.data.copy_(log_alpha)
+            self.alpha_optimizer.load_state_dict(alpha_optim_state_dict)
         self.eval_statistics = ss['eval_statistics']
         self._n_train_steps_total = ss['_n_train_steps_total']
         self._need_to_update_eval_statistic = ss['_need_to_update_eval_statistics']
