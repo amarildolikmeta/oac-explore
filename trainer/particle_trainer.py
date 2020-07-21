@@ -41,7 +41,8 @@ class ParticleTrainer(SACTrainer):
             global_opt=False,
             std_soft_update=False,
             std_soft_update_prob=0.,
-            train_bias=True
+            train_bias=True,
+            normalize_loss=False,
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -86,7 +87,7 @@ class ParticleTrainer(SACTrainer):
 
         self.std_soft_update = std_soft_update
         self.std_soft_update_prob = std_soft_update_prob
-
+        self.normalize_loss = normalize_loss
         assert not self.counts or not self.std_soft_update
 
         self.action_space = action_space
@@ -230,7 +231,11 @@ class ParticleTrainer(SACTrainer):
         #assert (torch.gather(targets_1, 0, qs_indexes) - targets).isclose(torch.Tensor(0)).all()
         qs = sorted_qs    #TODO questo e solo per prova rimuovi commento per riordinare
         targets = q_target
-
+        # spreads = targets[-1] - targets[0]
+        # max_spread = self.q_max - self.q_min
+        # diff = spreads - max_spread
+        # if (diff > 10).any():
+        #     print("Whaat")
         #rescale targets
         # q_range = targets[-1] - targets[0]
         # factor = torch.ones_like(q_range)
@@ -239,15 +244,27 @@ class ParticleTrainer(SACTrainer):
         # q_mean = torch.mean(targets, dim=0)
         # targets = factor * targets + (1 - factor) * ((targets - q_mean) * (max_spread / (q_range + 1e-6)) + q_mean)
         if self.share_layers:
-            for i in range(self.num_particles):
-                q_loss = self.qf_criterion(qs[i], targets[i].detach())
-                qf_losses.append(q_loss)
-                qf_loss += q_loss
-            self.qf_optimizers[0].zero_grad()
-            if torch.isnan(qf_loss).any():
-                print("What")
-            qf_loss.backward(retain_graph=True)
-            self.qf_optimizers[0].step()
+            if self.normalize_loss:
+                qf_loss = (torch.sum((qs - targets.detach())**2, dim=0) / (targets.detach().std(dim=0) + 1e-3)).mean()
+                self.qf_optimizers[0].zero_grad()
+                qf_loss.backward(retain_graph=True)
+                self.qf_optimizers[0].step()
+                #just for
+                for i in range(self.num_particles):
+                    q_loss = self.qf_criterion(qs[i], targets[i].detach())
+                    qf_losses.append(q_loss)
+                    #qf_loss += q_loss
+            else:
+                for i in range(self.num_particles):
+                    q_loss = self.qf_criterion(qs[i], targets[i].detach())
+                    qf_losses.append(q_loss)
+                    qf_loss += q_loss
+                qf_loss /= self.num_particles
+                self.qf_optimizers[0].zero_grad()
+                if torch.isnan(qf_loss).any():
+                    print("What")
+                qf_loss.backward(retain_graph=True)
+                self.qf_optimizers[0].step()
         else:
             for i in range(self.num_particles):
                 q_loss = self.qf_criterion(qs[i], targets[i].detach())
@@ -407,7 +424,7 @@ class ParticleTrainer(SACTrainer):
             self.eval_statistics['QF std'] = np.std(ptu.get_numpy(qs), axis=0).mean()
             self.eval_statistics['QF Unordered'] = ptu.get_numpy(num_current_out_of_order).mean()
             self.eval_statistics['QF target Undordered'] = ptu.get_numpy(num_target_out_of_order).mean()
-
+            self.eval_statistics['Q Loss'] = ptu.get_numpy(qf_loss).mean()
             for i in range(self.num_particles):
                 self.eval_statistics['QF' + str(i) + ' Loss'] = np.mean(ptu.get_numpy(qf_losses[i]))
                 self.eval_statistics.update(create_stats_ordered_dict(

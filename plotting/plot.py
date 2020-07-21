@@ -10,7 +10,7 @@ def running_mean(x, N):
 env_to_bounds = {
     'point/hard': (-6000, -1000),
     'point/maze': (-10000, -5000),
-    'point/maze_easy': (-10000, -5000),
+    'point/maze_easy': (-8000, 1000),
 }
 
 #dir = '../data/data_remote/'
@@ -119,26 +119,55 @@ envs = ['point/maze_easy']
 settings = ['terminal/mean_update_counts/p-oac_/no_bias_2', 'terminal/p-oac_/no_bias_2',
             'terminal/oac_/25',
             'terminal/counts/p-oac_/no_bias_2']
-settings = ['terminal/mean_update_counts/p-oac_/no_bias_2',]
+# settings = ['terminal/mean_update_counts/p-oac_/no_bias_2',]
 #
 envs = ['point/hard']
 settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
             'terminal/counts/p-oac_/no_bias_no_target', 'terminal/p-oac_/narrower_10_p']
-settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
-            'terminal/counts/p-oac_/large_buffer']
+settings = ['terminal/oac_/delta_50',  'terminal/counts/p-oac_/no_bias',
+            'terminal/counts/p-oac_/normalized',]
+settings = [
+            'terminal/counts/p-oac_/large_buffer_non_normalized',
+            'terminal/counts/p-oac_/large_buffer_normalized', 'terminal/oac_/large_buffer_3',
+            'terminal/sac_/large_buffer',] #
+
+# 'terminal/counts/p-oac_/large_buffer_oac_no_entropy',
+# 'terminal/counts/p-oac_/large_buffer_stochastic',
 #
 # settings = ['terminal/counts/p-oac_/no_bias_sampled', 'terminal/oac_/25']
 # settings = ['terminal/counts/p-oac_/no_bias',]
 # settings = ['terminal/p-oac_/oac_mean_policy',]
 
-# envs = ['cartpole', 'mountain'] #, 'cartpole', 'mountain', 'riverswim'
-# settings = ['sac_', 'oac_', 'p-oac_5', 'p-tsac_5', 'g-oac_5', 'g-tsac_5', 'p-oac_', 'p-tsac_', 'g-oac_', 'g-tsac_'] #, 'g-tsac_1'] #, ,  'oac',
+# dir = '../data/remote/'
+# envs = ['point/maze_easy']
+# settings = ['terminal/oac_/large_buffer', 'terminal/sac_/large_buffer',
+#             'terminal/counts/p-oac_/no_bias_', ] #
+
+# settings = ['terminal/counts/p-oac_/large_buffer_oac', ]
+
+# settings = [ 'terminal/counts/p-oac_/no_bias_',]
+# envs = ['point/maze_easy']
+# settings = ['terminal/mean_update_counts/p-oac_/no_bias_2', 'terminal/p-oac_/no_bias_2',
+#             'terminal/oac_/25',
+#             'terminal/counts/p-oac_/no_bias_2']
+# settings = ['terminal/counts/p-oac_/no_bias_2']
+
+dir = '../data/'
+envs = ['lqg']
+settings = [ 'counts/p-oac_', 'p-oac_', 'counts/p-oac_/shifted', 'oac_/biased',]
+
+# dir = '../data/'
+# envs = ['cliff_mono']
+# settings = [ 'oac_/delta_10_beta_3', 'oac_/delta_20_beta_3', 'oac_/delta_30_beta_3', 'oac_/delta_40_beta_3',
+#              'oac_/delta_10_beta_5', 'oac_/delta_20_beta_5', 'oac_/delta_30_beta_5' ,'oac_/delta_40_beta_5'
+#              'oac_/delta_10_beta_4', 'oac_/delta_20_beta_4', 'oac_/delta_30_beta_4' ,'oac_/delta_40_beta_4']
 colors = ['c', 'k', 'orange', 'purple', 'r', 'b', 'g', 'y', 'brown', 'magenta', '#BC8D0B', "#006400"]
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 fields = ['exploration/Average Returns', 'remote_evaluation/Average Returns',
           'trainer/QF mean', 'trainer/QF std',
           'trainer/QF Unordered', 'trainer/QF target Undordered',
-          'remote_evaluation/Num Paths', 'trainer/' + 'QF' + str(7) + ' Loss']  # 'trainer/QF std 2']
+          'remote_evaluation/Num Paths',
+          'trainer/' + 'Q Loss']  # 'trainer/QF std 2']
 
 #
 # 'exploration/Returns Max', 'remote_evaluation/Returns Max',
@@ -157,14 +186,16 @@ field_to_label = {
     'trainer/Policy log std Mean': 'policy std',
     'trainer/Policy Loss': 'policy loss',
     'trainer/' + 'QF' + str(7) + ' Loss': 'upper bound loss',
-    'remote_evaluation/Num Paths': 'Number of episodes'
+    'trainer/' + 'QF1 Loss': 'upper bound loss',
+    'remote_evaluation/Num Paths': 'Number of episodes',
+    'trainer/' + 'Q Loss': 'Critic Loss'
 }
 separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 50
-max_rows = 1100
+subsample = 10
+max_rows = 400
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -182,13 +213,23 @@ for env in envs:
                 print(p)
                 try:
                     data = pd.read_csv(p, usecols=[field])
+
                     #print(data)
                 except:
-                    break
+                    if field == 'trainer/' + 'QF' + str(7) + ' Loss':
+                        try:
+                            data = pd.read_csv(p, usecols=['trainer/' + 'QF1 Loss'])
+                        except:
+                            break
+                    else:
+                        break
                 try:
                     res = np.array(data[field], dtype=np.float64)
                 except:
-                    print("What")
+                    try:
+                        res = np.array(data['trainer/' + 'QF1 Loss'], dtype=np.float64)
+                    except:
+                        print("What")
                 if separate:
                     if f == 0:
                         label = setting  + '-' + str(j)

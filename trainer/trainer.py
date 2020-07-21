@@ -25,7 +25,6 @@ class SACTrainer(object):
 
             soft_target_tau=1e-2,
             target_update_period=1,
-
             use_automatic_entropy_tuning=True,
             target_entropy=None,
             deterministic=False
@@ -194,7 +193,7 @@ class SACTrainer(object):
         #     self.qf_optimizers[i].step()
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
-
+        qf_loss = qf1_loss + qf2_loss
         """
         Update networks
         """
@@ -247,6 +246,7 @@ class SACTrainer(object):
                                                     , axis=0).mean()
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
+            self.eval_statistics['Q Loss'] = np.mean(ptu.get_numpy(qf_loss))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
                 policy_loss
             ))

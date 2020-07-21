@@ -375,6 +375,7 @@ def get_cmd_args():
     parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
     parser.add_argument('--should_use',  action='store_true')
     parser.add_argument('--stochastic',  action='store_true')
+    parser.add_argument('--normalize_loss',  action='store_true')
     parser.set_defaults(train_bias=True)
     parser.add_argument('--soft_target_tau', type=float, default=5E-3)
 
@@ -509,6 +510,8 @@ if __name__ == "__main__":
 
         if args.alg in ['g-oac']:
             variant['trainer_kwargs']['std_lr'] = args.std_lr
+        if args.alg in ['p-oac']:
+            variant['trainer_kwargs']['normalize_loss'] = args.normalize_loss
 
 
     variant['alg'] = args.alg

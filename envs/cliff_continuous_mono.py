@@ -5,7 +5,7 @@ import numpy as np
 
 
 class CliffWorldContinuousMono(gym.Env):
-    def __init__(self, dim=(12,), gamma=0.99, small=-1, large=-5, max_action=1, sigma_noise=0., horizon=np.inf):
+    def __init__(self, dim=(12,), gamma=0.99, small=-1, large=-5, max_action=1, sigma_noise=0.1, horizon=np.inf):
         self.horizon = horizon
         self.small = small
         self.large = large
