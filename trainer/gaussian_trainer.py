@@ -44,7 +44,9 @@ class GaussianTrainer(SACTrainer):
             global_opt=False,
             std_soft_update=False,
             std_soft_update_prob=0.,
-            train_bias=True
+            train_bias=True,
+            use_target_policy=False,
+            rescale_targets_around_mean=False
     ):
         super().__init__(policy_producer,
                          q_producer,
@@ -83,6 +85,7 @@ class GaussianTrainer(SACTrainer):
 
         self.std_soft_update = std_soft_update
         self.std_soft_update_prob = std_soft_update_prob
+        self.rescale_targets_around_mean = rescale_targets_around_mean
 
         assert not self.counts or not self.std_soft_update
 
@@ -147,6 +150,14 @@ class GaussianTrainer(SACTrainer):
         if self.global_opt:
             self.init_target_policy = policy_producer()
 
+        # target_policy in ddpg
+        self.use_target_policy = use_target_policy
+        if use_target_policy and not self.mean_update:
+            self.target_policy_network = policy_producer()
+            ptu.soft_update_from_to(
+                self.policy, self.target_policy_network, 1
+            )
+
     def predict(self, obs, action, std=True):
         obs = np.array(obs)
         # action = np.array(action)
@@ -170,11 +181,6 @@ class GaussianTrainer(SACTrainer):
         actions = batch['actions']
         next_obs = batch['next_observations']
 
-        # if self.counts:
-        #     counts = batch['counts']
-        #     discount = torch.ones_like(counts)
-        #     discount[counts == 0] = self.discount
-        # else:
         discount = self.discount
 
 
@@ -187,6 +193,10 @@ class GaussianTrainer(SACTrainer):
         # functions like tanh correctly!
         if self.mean_update:
             new_next_actions, _, _, new_log_pi, *_ = self.target_policy(
+                obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
+            )
+        elif self.use_target_policy:
+            new_next_actions, _, _, new_log_pi, *_ = self.target_policy_network(
                 obs=next_obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
             )
         else:
@@ -290,17 +300,6 @@ class GaussianTrainer(SACTrainer):
                 # log exp trick
                 if self.mellow_max:
                     mellow_max_loss = mellow_max(upper_bounds, self.r_mellow_max, self.b)
-                    # if self.b:
-                    #     b = self.b
-                    # else:
-                    #     b = torch.stack(upper_bounds).max(0)[0]
-                    # mellow_max_loss = 0
-                    # for i in range(self.n_policies):
-                    #     mellow_max_loss += torch.exp(upper_bounds[i] - b)
-                    # if self.b:
-                    #     mellow_max_loss = torch.log(mellow_max_loss) / self.r_mellow_max
-                    # else:
-                    #     mellow_max_loss = (torch.log(mellow_max_loss) + b) / self.r_mellow_max
                     policy_loss = -mellow_max_loss
                 else:
                     loss = 0
@@ -356,16 +355,9 @@ class GaussianTrainer(SACTrainer):
                 policy_loss.backward()
                 self.policy_optimizer.step()
 
-        # if self.mean_update:
         """
             Update_target_policy
         """
-        # if self.global_opt:
-        #     # optimize_policy(self.target_policy, self.target_policy_optimizer, batch['buffer'],
-        #     #                 action_space=self.action_space, obj_func=self.obj_func,
-        #     #                 init_policy=self.init_target_policy, upper_bound=False)
-        #     pass
-        # else:
         target_actions, policy_mean, policy_log_std, log_pi, *_ = self.target_policy(
             obs=obs, reparameterize=True, return_log_prob=True, deterministic=self.deterministic
         )
@@ -389,6 +381,10 @@ class GaussianTrainer(SACTrainer):
             if not self.share_layers:
                 ptu.soft_update_from_to(
                     self.std, self.std_target, self.soft_target_tau
+                )
+            if self.use_target_policy:
+                ptu.soft_update_from_to(
+                    self.target_policy_network, self.target_policy_network, self.soft_target_tau
                 )
 
         """
@@ -447,6 +443,9 @@ class GaussianTrainer(SACTrainer):
             networks = [self.policy] + self.qfs + self.tfs
         # if self.mean_update:
         networks += [self.target_policy]
+
+        if self.use_target_policy:
+            networks += [self.target_policy_network]
         return networks
 
     def get_snapshot(self):
@@ -480,6 +479,8 @@ class GaussianTrainer(SACTrainer):
         # if self.mean_update:
         data["target_policy_state_dict"] = self.target_policy.state_dict()
         data["target_policy_opt_state_dict"] = self.target_policy_optimizer.state_dict()
+        if self.use_target_policy:
+            data["target_policy_network"] = self.target_policy_network.state_dict()
         return data
 
     def restore_from_snapshot(self, ss):
@@ -513,6 +514,9 @@ class GaussianTrainer(SACTrainer):
         self.target_policy.load_state_dict(ss["target_policy_state_dict"])
         self.target_policy_optimizer.load_state_dict(ss["target_policy_opt_state_dict"])
 
+        if self.use_target_policy:
+            self.target_policy_network.load_state_dict(ss["target_policy_network"])
+
     def obj_func(self, states, actions, upper_bound=False):
         qs = self.q(states, actions)
         if self.share_layers:
@@ -529,11 +533,6 @@ class GaussianTrainer(SACTrainer):
     def optimize_policies(self, buffer, out_dir='', epoch=0, save_fig=False):
         if self.ensemble:
             return
-        # if self.mean_update:
-        #     optimize_policy(self.target_policy, self.target_policy_optimizer, buffer,
-        #                     action_space=self.action_space, obj_func=self.obj_func,
-        #                     init_policy=self.init_target_policy, upper_bound=False, out_dir=out_dir,
-        #                     epoch=epoch, save_fig=save_fig)
         optimize_policy(self.policy, self.policy_optimizer, buffer, obj_func=self.obj_func,
                         init_policy=self.init_policy, action_space=self.action_space, upper_bound=True,
                         out_dir=out_dir, epoch=epoch, save_fig=save_fig)

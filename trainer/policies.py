@@ -1,7 +1,5 @@
 import numpy as np
-import torch
 from torch import nn as nn
-
 from utils.core import eval_np
 from networks import Mlp, MultipleMlp
 import torch
@@ -245,7 +243,10 @@ class TanhGaussianPolicy(Mlp):
             self.last_fc_log_std.bias.data.uniform_(-init_w, init_w)
         else:
             self.log_std = np.log(std)
-            assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
+            cond = ((LOG_SIG_MIN <= self.log_std) * (self.log_std <= LOG_SIG_MAX)).all()
+            assert cond
+            self.log_std = ptu.from_numpy(self.log_std)
+            self.std = ptu.from_numpy(self.std)
         self.policies_list = [self]
         #print('PARAMETERS AFTER', list(self.parameters()))
 
@@ -316,101 +317,8 @@ class TanhGaussianPolicy(Mlp):
 
     def reset(self):
         pass
-'''
-class TanhGaussianMixturePolicy(nn.Module):
-    """
-    Usage:
-
-    ```
-    policy = TanhGaussianPolicy(...)
-    action, mean, log_std, _ = policy(obs)
-    action, mean, log_std, _ = policy(obs, deterministic=True)
-    action, mean, log_std, log_prob = policy(obs, return_log_prob=True)
-    ```
-
-    Here, mean and log_std are the mean and log_std of the Gaussian that is
-    sampled from.
-
-    If deterministic is True, action = tanh(mean).
-    If return_log_prob is False (default), log_prob = None
-        This is done because computing the log_prob can be a bit expensive.
-    """
-
-    def __init__(
-            self,
-            hidden_sizes,
-            obs_dim,
-            action_dim,
-            std=None,
-            init_w=1e-3,
-            bias=None,
-            n_components=1,
-            **kwargs
-    ):
-        super().__init__()
-        self.n_components = n_components
-        self.policies_list = [TanhGaussianPolicy(hidden_sizes,
-                                       obs_dim,
-                                       action_dim,
-                                       std,
-                                       init_w,
-                                       bias,
-                                       **kwargs)
-                            for _ in range(n_components)]
-        self.policies = nn.ModuleList(self.policies_list)
-
-        self.weights = nn.Parameter(torch.ones(n_components) / n_components, requires_grad=True)
-
-        print('PARAMETERS', list(self.parameters()))
-
-    def get_action(self, obs_np, deterministic=False):
-        actions = self.get_actions(obs_np[None], deterministic=deterministic)
-        return actions[0, :], {}
-
-    def get_actions(self, obs_np, deterministic=False):
-        return eval_np(self, obs_np, deterministic=deterministic)[0]
 
 
-
-    def forward(
-            self,
-            obs,
-            reparameterize=True,
-            deterministic=False,
-            return_log_prob=False,
-    ):
-        """
-        :param obs: Observation
-        :param deterministic: If True, do not sample
-        :param return_log_prob: If True, return a sample and its log probability
-        """
-        self.categorical = Categorical(self.weights)
-        idx = self.categorical.sample_n(1)
-        action, mean, log_std, log_prob, std, pre_tanh_value = self.policies[idx].forward(obs,
-                                                                                        reparameterize,
-                                                                                        deterministic,
-                                                                                        return_log_prob)
-
-        log_prob = log_prob + torch.log(self.weights[idx])
-
-        #print(self.weights)
-
-        if log_prob is None:
-            log_prob = torch.zeros_like(action)
-            pre_tanh_value = torch.zeros_like(action)
-        return (
-            action, mean, log_std, log_prob, std,
-            pre_tanh_value,
-        )
-
-    def reset(self):
-        pass
-
-    def to(self, **args):
-        for i in range(len(self.policies)):
-            self.policies[i].to(**args)
-
-'''
 class TanhGaussianMixturePolicy(MultipleMlp):
     """
     Usage:
@@ -604,6 +512,7 @@ class MakeDeterministic(object):
     def to(self, **args):
         return self.stochastic_policy.to(**args)
 
+
 def policy_producer(obs_dim, action_dim, hidden_sizes, deterministic=False, ensemble=False, n_policies=1, n_components=1,
                     approximator=None, bias=None):
     if ensemble:
@@ -719,88 +628,6 @@ class EnsemblePolicy:
                     max_res = action
         if max_res is None:
             print("What?")
-        return max_res[0, :], {}
-
-    def get_actions(self, obs_np, deterministic=False, index=0):
-        return eval_np(self.policies[index], obs_np, deterministic=deterministic)[0]
-
-    def reset(self):
-        pass
-
-    def load_state_dict(self, state_dicts):
-        for i in range(len(self.policies)):
-            self.policies[i].load_state_dict(state_dicts[i])
-
-    def state_dict(self, **args):
-        state_dict = []
-        for i in range(len(self.policies)):
-            state_dict.append(self.policies[i].state_dict(**args))
-        return state_dict
-
-    def to(self, **args):
-        for i in range(len(self.policies)):
-            self.policies[i].to(**args)
-        #return self.stochastic_policy.to(**args)
-
-class MixturePolicy:
-    def __init__(
-            self,
-            hidden_sizes,
-            obs_dim,
-            action_dim,
-            std=None,
-            init_w=1e-3,
-            bias=None,
-            n_policies=1,
-            **kwargs
-    ):
-        self.policies = []
-        for i in range(n_policies):
-            self.policies.append(TanhGaussianPolicy(hidden_sizes, obs_dim, action_dim, std, init_w, bias,
-                                                    **kwargs))
-
-    def __call__(self, **args):
-        return self.forward(**args)
-
-    def forward(self,
-                obs,
-                reparameterize=True,
-                deterministic=False,
-                return_log_prob=False,
-                ):
-        actions = []
-        values = []
-        results = []
-
-
-
-        for i in range(len(self.policies)):
-            action, mean, log_std, log_prob, std, pre_tanh_value = self.policies[i].forward(obs, reparameterize, deterministic, return_log_prob)
-
-            actions.append(res[0])
-            values.append(self.approximator.predict(obs, res[0]))
-            results.append(torch.stack([res[j] for j in range(len(res))], dim=0))
-        values = torch.stack(values, dim=0)
-        results = torch.stack(results, dim=0).permute([2, 0, 1, -1])
-        argmax = torch.max(values, dim=0)[1]
-        max_res = results[torch.arange(results.shape[0]), argmax[:, 0]].permute([1, 0, -1])
-
-        return tuple([max_res[i] for i in range(max_res.shape[0])])
-
-    def get_action(self, obs_np, deterministic=False):
-        actions = []
-        values = []
-        max_value = -np.inf
-        max_index = -1
-        max_res = None
-        for i in range(len(self.policies)):
-            action = self.get_actions(obs_np[None], deterministic=deterministic, index=i)
-            actions.append(action)
-            values.append(self.approximator.predict([obs_np], action)[0])
-            if values[i] > max_value:
-                max_value = values[i]
-                max_index = i
-                max_res = action
         return max_res[0, :], {}
 
     def get_actions(self, obs_np, deterministic=False, index=0):
@@ -983,3 +810,74 @@ class Gaussian(Distribution):
             return z, z
         else:
             return z
+
+
+class TanhDeterministicPolicy(Mlp):
+    """
+    Usage:
+
+    ```
+    policy = TanhGaussianPolicy(...)
+    action, _, _, _ = policy(obs)
+    action, _, _, _ = policy(obs, deterministic=True)
+    action, _, _, _ = policy(obs, return_log_prob=True)
+
+    """
+
+    def __init__(
+            self,
+            hidden_sizes,
+            obs_dim,
+            action_dim,
+            std=None,
+            init_w=1e-3,
+            bias=None,
+            **kwargs
+    ):
+        if bias is not None:
+            bias = np.arctanh(bias)
+        super().__init__(
+            hidden_sizes,
+            input_size=obs_dim,
+            output_size=action_dim,
+            init_w=init_w,
+            bias=bias,
+            **kwargs
+        )
+
+        self.policies_list = [self]
+        #print('PARAMETERS AFTER', list(self.parameters()))
+
+    def get_action(self, obs_np, deterministic=False):
+        actions = self.get_actions(obs_np[None], deterministic=deterministic)
+        return actions[0, :], {}
+
+    def get_actions(self, obs_np, deterministic=False):
+        return eval_np(self, obs_np, deterministic=deterministic)[0]
+
+    def forward(
+            self,
+            obs,
+            reparameterize=True,
+            deterministic=False,
+            return_log_prob=False,
+    ):
+        """
+        :param obs: Observation
+        :param deterministic: If True, do not sample
+        :param return_log_prob: left for compatibilityh
+        """
+        h = obs
+        for i, fc in enumerate(self.fcs):
+            h = self.hidden_activation(fc(h))
+        mean = self.last_fc(h)
+
+        action = torch.tanh(mean)
+        pre_tanh_value = mean
+        return (
+            action, mean, -10, 0, 0,
+            pre_tanh_value,
+        )
+
+    def reset(self):
+        pass

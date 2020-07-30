@@ -93,7 +93,7 @@ iter = args.iter
 delta_iter = args.delta_iter
 max_iter = args.max_iter
 num_trains = variant['algorithm_kwargs']['num_trains_per_train_loop']
-save_sampled_data = variant['algorithm_kwargs']['save_sampled_data']
+save_sampled_data = variant['algorithm_kwargs']['save_sampled_data'] and False
 if save_sampled_data:
     all_sampled_states = pickle.load(open(base_dir + '/sampled_states.pkl', 'rb'))
     all_sampled_actions = pickle.load(open(base_dir + '/sampled_actions.pkl', 'rb'))

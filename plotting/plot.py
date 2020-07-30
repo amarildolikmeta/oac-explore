@@ -10,7 +10,7 @@ def running_mean(x, N):
 env_to_bounds = {
     'point/hard': (-6000, -1000),
     'point/maze': (-10000, -5000),
-    'point/maze_easy': (-8000, 1000),
+    'point/maze_easy': (-8000, -4000),
 }
 
 #dir = '../data/data_remote/'
@@ -116,45 +116,77 @@ settings = ['mean_update_counts/p-oac_/no_bias_left',
 # settings = ['counts/p-oac_/no_bias_left']
 
 envs = ['point/maze_easy']
-settings = ['terminal/mean_update_counts/p-oac_/no_bias_2', 'terminal/p-oac_/no_bias_2',
-            'terminal/oac_/25',
-            'terminal/counts/p-oac_/no_bias_2']
-# settings = ['terminal/mean_update_counts/p-oac_/no_bias_2',]
+settings = ['terminal/oac_/25', 'terminal/counts/p-oac_/no_bias_2', 'terminal/ddpg/counts/p-oac_/no_bias',
+            'terminal/ddpg/counts/p-oac_/soft_target_policy',
+            'terminal/ddpg/counts/p-oac_/soft_target_policy_faster_critic',
+            'terminal/ddpg_/base', 'terminal/ddpg_/soft_target',]
+
+envs = ['cartpole']
+settings = ['counts/p-oac_/no_bias',
+            'counts/p-oac_/target_policy',
+            'ddpg/counts/p-oac_/no_bias',
+            'ddpg/counts/p-oac_/target_policy',
+            'ddpg_/base',
+            'ddpg_/soft_target_policy',
+            'oac_/base',
+            ]
+envs = ['cliff_mono']
+settings = ['counts/p-oac_/base',
+            'counts/p-oac_/soft_target',
+            'ddpg/counts/p-oac_/base',
+            'ddpg/counts/p-oac_/soft_target',
+            'ddpg_/base',
+            'ddpg_/soft_target',
+            'oac_/base',]
+# # settings = ['terminal/mean_update_counts/p-oac_/no_bias_2',]
+# #
+# envs = ['point/hard']
+# settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
+#             'terminal/ddpgcounts/p-oac_/no_bias', 'terminal/ddpgcounts/p-oac_/soft_target_policy',
+#             'terminal/ddpg/counts/p-oac_/noisy_expl_small_std',]
+# settings = [ 'terminal/counts/p-oac_/no_bias',
+#              'terminal/ddpgcounts/p-oac_/soft_target_policy', 'terminal/ddpg_/soft_target_policy',
+#              'terminal/ddpg/counts/p-oac_/soft_target_policy',
+#              'terminal/ddpg/counts/p-oac_/faster_critic'
+#            ]
+
+# envs = ['riverswim/25']
+# settings = [
+#             'counts/p-oac_/no_bias_left_sampled',
+#             'ddpg/counts/p-oac_/no_bias_left',
+#             'ddpg/counts/p-oac_/soft_policy',
+#             'oac_/no_bias_sampled']
+# settings = ['terminal/oac_/delta_50',  'terminal/counts/p-oac_/no_bias',
+#             'terminal/counts/p-oac_/normalized',]
+# settings = [
+#             'terminal/counts/p-oac_/large_buffer_non_normalized',
+#             'terminal/counts/p-oac_/large_buffer_normalized', 'terminal/oac_/large_buffer_3',
+#             'terminal/sac_/large_buffer',] #
 #
-envs = ['point/hard']
-settings = ['terminal/oac_/delta_50', 'terminal/counts/p-oac_/no_bias',
-            'terminal/counts/p-oac_/no_bias_no_target', 'terminal/p-oac_/narrower_10_p']
-settings = ['terminal/oac_/delta_50',  'terminal/counts/p-oac_/no_bias',
-            'terminal/counts/p-oac_/normalized',]
-settings = [
-            'terminal/counts/p-oac_/large_buffer_non_normalized',
-            'terminal/counts/p-oac_/large_buffer_normalized', 'terminal/oac_/large_buffer_3',
-            'terminal/sac_/large_buffer',] #
-
-# 'terminal/counts/p-oac_/large_buffer_oac_no_entropy',
-# 'terminal/counts/p-oac_/large_buffer_stochastic',
+# # 'terminal/counts/p-oac_/large_buffer_oac_no_entropy',
+# # 'terminal/counts/p-oac_/large_buffer_stochastic',
+# #
+# # settings = ['terminal/counts/p-oac_/no_bias_sampled', 'terminal/oac_/25']
+# # settings = ['terminal/counts/p-oac_/no_bias',]
+# # settings = ['terminal/p-oac_/oac_mean_policy',]
 #
-# settings = ['terminal/counts/p-oac_/no_bias_sampled', 'terminal/oac_/25']
-# settings = ['terminal/counts/p-oac_/no_bias',]
-# settings = ['terminal/p-oac_/oac_mean_policy',]
-
-# dir = '../data/remote/'
-# envs = ['point/maze_easy']
-# settings = ['terminal/oac_/large_buffer', 'terminal/sac_/large_buffer',
-#             'terminal/counts/p-oac_/no_bias_', ] #
-
-# settings = ['terminal/counts/p-oac_/large_buffer_oac', ]
-
-# settings = [ 'terminal/counts/p-oac_/no_bias_',]
+# # dir = '../data/remote/'
+# # envs = ['point/maze_easy']
+# # settings = ['terminal/oac_/large_buffer', 'terminal/sac_/large_buffer',
+# #             'terminal/counts/p-oac_/no_bias_', ] #
+#
+# # settings = ['terminal/counts/p-oac_/large_buffer_oac', ]
+#
+# # settings = [ 'terminal/counts/p-oac_/no_bias_',]
 # envs = ['point/maze_easy']
 # settings = ['terminal/mean_update_counts/p-oac_/no_bias_2', 'terminal/p-oac_/no_bias_2',
 #             'terminal/oac_/25',
 #             'terminal/counts/p-oac_/no_bias_2']
 # settings = ['terminal/counts/p-oac_/no_bias_2']
-
-dir = '../data/'
-envs = ['lqg']
-settings = [ 'counts/p-oac_', 'p-oac_', 'counts/p-oac_/shifted', 'oac_/biased',]
+#
+# dir = '../data/'
+# envs = ['lqg']
+# settings = ['counts/p-oac_', 'p-oac_', 'counts/p-oac_/shifted', 'oac_/biased', 'oac_']
 
 # dir = '../data/'
 # envs = ['cliff_mono']
@@ -188,14 +220,14 @@ field_to_label = {
     'trainer/' + 'QF' + str(7) + ' Loss': 'upper bound loss',
     'trainer/' + 'QF1 Loss': 'upper bound loss',
     'remote_evaluation/Num Paths': 'Number of episodes',
-    'trainer/' + 'Q Loss': 'Critic Loss'
+    'trainer/Q Loss': 'Critic Loss'
 }
 separate = False
 count = 0
 plot_count = 0
 n_col = 2
-subsample = 10
-max_rows = 400
+subsample = 1
+max_rows = 800
 for env in envs:
     fig, ax = plt.subplots(int(np.ceil(len(fields) / n_col)), n_col, figsize=(12, 24))
     fig.suptitle(env)
@@ -263,7 +295,6 @@ for env in envs:
                 # mean = mean[indexes]
                 # std = std[indexes]
                 #x = indexes
-
                 if f == 0:
                     label = setting
                 else:
@@ -277,6 +308,9 @@ for env in envs:
         if field in ['remote_evaluation/Average Returns', 'exploration/Average Returns'] and 'point' in env:
             bounds = env_to_bounds[env]
             ax[col // n_col][col % n_col].set_ylim(bounds)
+        if field in ['trainer/Q Loss'] and 'point' in env:
+
+            ax[col // n_col][col % n_col].set_ylim((0, 1))
         if col // n_col == int(np.ceil(len(fields) / n_col)) - 1:
             ax[col // n_col][col % n_col].set_xlabel('epoch', fontdict={'fontsize': 7})
         ax[col // n_col][col % n_col].set_title(field_to_label[field], fontdict={'fontsize': 7})

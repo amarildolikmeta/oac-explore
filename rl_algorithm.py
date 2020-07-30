@@ -36,7 +36,9 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
             save_sampled_data=False,
             global_opt=False,
             save_fig=False,
-            trainer_UB=False
+            trainer_UB=False,
+            ddpg=False,
+            ddpg_noisy=False
     ):
         super().__init__()
         """
@@ -56,6 +58,8 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
         self.ob_sampled = []
         self.ac_sampled = []
         self.global_opt = global_opt
+        self.ddpg = ddpg
+        self.ddpg_noisy = ddpg_noisy
         """
         The class mutable state
         """
@@ -132,13 +136,16 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 best_eval = avg_ret
 
             for _ in range(self.num_train_loops_per_epoch):
+                deterministic = self.trainer.deterministic
+                if self.ddpg:
+                    deterministic = self.ddpg_noisy
                 new_expl_paths, returns = self.expl_data_collector.collect_new_paths(
                     behavioral_policy,
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
                     optimistic_exploration=self.optimistic_exp_hp['should_use'],
-                    deterministic_pol=self.trainer.deterministic,
+                    deterministic_pol=deterministic,
                     optimistic_exploration_kwargs=dict(
                         policy=behavioral_policy,
                         qfs=self.trainer.qfs,

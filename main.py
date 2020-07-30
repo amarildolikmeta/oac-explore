@@ -1,5 +1,4 @@
-import os
-import os.path as osp
+
 import argparse
 import torch
 import time
@@ -13,6 +12,7 @@ from path_collector import MdpPathCollector, RemoteMdpPathCollector
 from trainer.policies import TanhGaussianPolicy, MakeDeterministic, EnsemblePolicy, TanhGaussianMixturePolicy
 from trainer.policies import GaussianPolicy
 from trainer.trainer import SACTrainer
+from trainer.ddpg_trainer import DDPGTrainer
 from trainer.particle_trainer import ParticleTrainer
 from trainer.gaussian_trainer import GaussianTrainer
 from trainer.gaussian_trainer_ts import GaussianTrainerTS
@@ -21,8 +21,6 @@ from trainer.particle_trainer_oac import ParticleTrainer as ParticleTrainerOAC
 from networks import FlattenMlp
 from rl_algorithm import BatchRLAlgorithm
 import numpy as np
-# import ray
-import logging
 
 
 # ray.init(
@@ -43,7 +41,7 @@ def get_current_branch(dir):
     return repo.active_branch.name
 
 
-def get_policy_producer(obs_dim, action_dim, hidden_sizes, clip=True):
+def get_policy_producer(obs_dim, action_dim, hidden_sizes, clip=True, std=None):
     def policy_producer(deterministic=False, bias=None, ensemble=False, n_policies=1, n_components=1,
                         approximator=None, share_layers=False):
         if ensemble:
@@ -67,7 +65,8 @@ def get_policy_producer(obs_dim, action_dim, hidden_sizes, clip=True):
                     obs_dim=obs_dim,
                     action_dim=action_dim,
                     hidden_sizes=hidden_sizes,
-                    bias=bias
+                    bias=bias,
+                    std=std
                 )
 
             else:
@@ -142,7 +141,12 @@ def experiment(variant, prev_exp_state=None):
     else:
         output_size = 1
     q_producer = get_q_producer(obs_dim, action_dim, hidden_sizes=[M] * N, output_size=output_size)
-    policy_producer = get_policy_producer(obs_dim, action_dim, hidden_sizes=[M] * N, clip=variant['clip_action'])
+    std = None
+    if variant['algorithm_kwargs']['ddpg_noisy']:
+        std = variant['std']
+        std = np.ones(action_dim) * std
+    policy_producer = get_policy_producer(obs_dim, action_dim, hidden_sizes=[M] * N, clip=variant['clip_action'],
+                                          std=std)
     # Finished getting producer
 
     remote_eval_path_collector = MdpPathCollector(
@@ -177,7 +181,14 @@ def experiment(variant, prev_exp_state=None):
             ob_space=expl_env.observation_space,
             action_space=expl_env.action_space
         )
-    if variant['alg'] in ['oac', 'sac']:
+    if variant['alg'] in ['ddpg']:
+        trainer = DDPGTrainer(
+            policy_producer,
+            q_producer,
+            action_space=expl_env.action_space,
+            **variant['trainer_kwargs']
+        )
+    elif variant['alg'] in ['oac', 'sac']:
         trainer = SACTrainer(
             policy_producer,
             q_producer,
@@ -300,7 +311,8 @@ def get_cmd_args():
     parser.add_argument('--ensemble', action="store_true")
     parser.add_argument('--n_policies', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac', 'g-tsac', 'p-tsac'])
+    parser.add_argument('--alg', type=str, default='oac', choices=['oac', 'p-oac', 'sac', 'g-oac', 'g-tsac', 'p-tsac',
+                                                                   'ddpg'])
     parser.add_argument('--no_gpu', default=False, action='store_true')
     parser.add_argument('--base_log_dir', type=str, default='./data')
     parser.add_argument('--load_dir', type=str, default='')
@@ -375,9 +387,13 @@ def get_cmd_args():
     parser.add_argument('--no_train_bias', dest='train_bias', action='store_false')
     parser.add_argument('--should_use',  action='store_true')
     parser.add_argument('--stochastic',  action='store_true')
-    parser.add_argument('--normalize_loss',  action='store_true')
     parser.set_defaults(train_bias=True)
     parser.add_argument('--soft_target_tau', type=float, default=5E-3)
+    parser.add_argument('--ddpg', action='store_true', help='use a ddpg version of the algorithms')
+    parser.add_argument('--ddpg_noisy', action='store_true', help='use noisy exploration policy')
+    parser.add_argument('--std', type=float, default=0.1, help='use noisy exploration policy for ddpg')
+    parser.add_argument('--use_target_policy', action='store_true', help='use a target policy in ddpg')
+    parser.add_argument('--rescale_targets_around_mean', action='store_true', help='use a target policy in ddpg')
 
     args = parser.parse_args()
 
@@ -400,6 +416,7 @@ def get_log_dir(args, should_include_base_log_dir=True, should_include_seed=True
                   ('terminal' + '/' if args.terminal and  args.domain == 'point' else '') + \
                   (str(args.dim) + '/' if args.domain == 'riverswim' else '') + \
                   ('global/' if args.global_opt else '') + \
+                  ('ddpg/' if args.ddpg else '') + \
                   ('mean_update_' if args.mean_update else '') + \
                   ('_priority_' if args.priority_sample else '') + \
                   ('counts/' if args.counts else '') + \
@@ -438,7 +455,6 @@ if __name__ == "__main__":
             policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
-            use_automatic_entropy_tuning=True,
         ),
         optimistic_exp={}
     )
@@ -456,7 +472,6 @@ if __name__ == "__main__":
     variant['share_layers'] = args.share_layers
     variant['n_estimators'] = args.n_estimators if args.alg in ['p-oac', 'p-tsac'] else 2
     variant['replay_buffer_size'] = int(args.replay_buffer_size)
-
     variant['algorithm_kwargs']['num_epochs'] = domain_to_epoch(args.domain) if args.epochs <= 0 else args.epochs
     variant['algorithm_kwargs']['num_trains_per_train_loop'] = args.num_trains_per_train_loop
     variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = args.num_expl_steps_per_train_loop
@@ -469,9 +484,10 @@ if __name__ == "__main__":
     variant['algorithm_kwargs']['trainer_UB'] = args.trainer_UB
 
     variant['delta'] = args.delta
+    variant['std'] = args.std
     variant['optimistic_exp']['should_use'] = args.beta_UB > 0 or args.delta > 0 and not args.alg in ['p-oac', 'sac',
                                                                                                       'g-oac', 'g-tsac',
-                                                                                                      'p-tsac']
+                                                                                                      'p-tsac', 'ddpg']
     if not variant['optimistic_exp']['should_use']:
         variant['optimistic_exp']['should_use'] = args.should_use
     variant['optimistic_exp']['beta_UB'] = args.beta_UB if args.alg == 'oac' else 0
@@ -482,7 +498,8 @@ if __name__ == "__main__":
     if args.should_use and args.alg in ['p-oac']:
         variant['optimistic_exp']['delta'] = args.delta_oac
     variant['optimistic_exp']['deterministic'] = args.deterministic_optimistic_exp
-    variant['trainer_kwargs']['use_automatic_entropy_tuning'] = args.entropy_tuning
+    if args.alg not in ['ddpg']:
+        variant['trainer_kwargs']['use_automatic_entropy_tuning'] = args.entropy_tuning
     variant['trainer_kwargs']['discount'] = args.gamma
     variant['trainer_kwargs']['policy_lr'] = args.policy_lr
     variant['trainer_kwargs']['qf_lr'] = args.qf_lr
@@ -507,11 +524,11 @@ if __name__ == "__main__":
             variant['algorithm_kwargs']['global_opt'] = args.global_opt
             variant['algorithm_kwargs']['save_fig'] = args.save_fig
             variant['trainer_kwargs']['train_bias'] = args.train_bias
-
+            variant['trainer_kwargs']['rescale_targets_around_mean'] = args.rescale_targets_around_mean
+            variant['trainer_kwargs']['use_target_policy'] = args.use_target_policy
         if args.alg in ['g-oac']:
             variant['trainer_kwargs']['std_lr'] = args.std_lr
-        if args.alg in ['p-oac']:
-            variant['trainer_kwargs']['normalize_loss'] = args.normalize_loss
+
 
 
     variant['alg'] = args.alg
@@ -528,7 +545,7 @@ if __name__ == "__main__":
 
 
     variant['trainer_kwargs']['soft_target_tau'] = args.soft_target_tau
-
+    variant['algorithm_kwargs']['ddpg_noisy'] = args.ddpg_noisy
     if args.alg in ['p-oac', 'g-oac', 'g-tsac', 'p-tsac']:
         N_expl = variant['algorithm_kwargs']['num_expl_steps_per_train_loop']
         N_train = variant['algorithm_kwargs']['num_trains_per_train_loop']
@@ -536,6 +553,17 @@ if __name__ == "__main__":
         N_updates = (N_train * B) / N_expl
         std_soft_update_prob = 2 / (N_updates * (N_updates + 1))
         variant['trainer_kwargs']['std_soft_update_prob'] = std_soft_update_prob
+    if args.ddpg or args.alg == 'ddpg':
+        variant['algorithm_kwargs']['num_trains_per_train_loop'] = 1
+        variant['algorithm_kwargs']['num_expl_steps_per_train_loop'] = 4
+        variant['algorithm_kwargs']['num_train_loops_per_epoch'] = args.num_expl_steps_per_train_loop // 4
+        variant['trainer_kwargs']['use_target_policy'] = args.use_target_policy
+        variant['algorithm_kwargs']['ddpg'] = args.ddpg
+        if args.alg == 'ddpg':
+            variant['algorithm_kwargs']['ddpg_noisy'] = True
+        else:
+            variant['algorithm_kwargs']['ddpg_noisy'] = args.ddpg_noisy
+
     #print("Prob %s" % variant['trainer_kwargs']['std_soft_update_prob'])
 
     if args.no_resampling:

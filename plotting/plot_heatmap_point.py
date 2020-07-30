@@ -29,6 +29,8 @@ parser.add_argument('--iter', type=int, default=70)
 parser.add_argument('--max_iter', type=int, default=71)
 parser.add_argument('--delta_iter', type=int, default=10)
 parser.add_argument('--show', action='store_true')
+parser.add_argument('--point', action='store_true')
+
 args = parser.parse_args()
 
 base_dir = args.path
@@ -126,9 +128,20 @@ while iter <= max_iter:
         heatmap = False
     delta_action = 0.25
     delta_state = 0.25
-
-    min_state, max_state = eval_env.bounds[0][0], eval_env.bounds[1][0]
-    min_y, max_y = eval_env.bounds[0][1], eval_env.bounds[1][1]
+    try:
+        min_state, max_state = eval_env.bounds[0][0], eval_env.bounds[1][0]
+        min_y, max_y = eval_env.bounds[0][1], eval_env.bounds[1][1]
+    except :
+        min_state, max_state = eval_env.observation_space.low[0], eval_env.observation_space.high[0]
+        min_y, max_y = eval_env.observation_space.low[1], eval_env.observation_space.high[1]
+        if save_sampled_data:
+            min_y = np.min(sampled_states, axis=0)[1]
+            max_y = np.max(sampled_states, axis=0)[1]
+            max_v = np.max(np.abs([min_y, max_y]))
+            min_y = - max_v
+            max_y = max_v
+            delta_action = 0.1
+            delta_state = 0.1
     if heatmap:
         ys = np.array([min_y + i * delta_action for i in range(int((max_y - min_y) / delta_action + 1))])[::-1]
         xs = np.array([min_state + i * delta_state for i in range(int((max_state - min_state) / delta_action + 1))])
@@ -144,7 +157,7 @@ while iter <= max_iter:
                     v = np.random.uniform(low=-5, high=5, size=2)
                     ob = np.concatenate([o, v, np.array([0.])])
                     ob = np.array([ob]).reshape((1, 6))
-                    a = np.array(action).reshape((1, 2))
+                    a = np.array(action).reshape((1, action.shape[-1]))
                     if alg in ['p-oac']:
                         qs, _ = trainer.predict(ob, a, all_particles=True)
                         qs = np_ify(qs)

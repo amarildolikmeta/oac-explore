@@ -16,8 +16,9 @@ iter = 190
 path = '../data/point/sac_/' + ts
 ts = '1590677750.0582957'
 path = '../data/point/mean_update_counts/p-oac_/' + ts
-ts = '1590677750.0582957'
-path = '../data/point/hard/terminal/counts/p-oac_/no_bias/' + ts
+ts = '1595343877.9346888'
+path = '../data/point/hard/terminal/ddpgcounts/p-oac_/no_bias/' + ts
+
 restore = True
 
 variant = json.load(open(path + '/variant.json', 'r'))
