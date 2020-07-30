@@ -130,10 +130,10 @@ class BatchRLAlgorithm(metaclass=abc.ABCMeta):
                 deterministic_pol=True
             )
             avg_ret = np.mean(returns)
-            if avg_ret > best_eval:
-                snapshot = self._get_snapshot(epoch)
-                logger.save_itr_params(epoch, snapshot, best=True)
-                best_eval = avg_ret
+            # if avg_ret > best_eval:
+            #     snapshot = self._get_snapshot(epoch)
+            #     logger.save_itr_params(epoch, snapshot, best=True)
+            #     best_eval = avg_ret
 
             for _ in range(self.num_train_loops_per_epoch):
                 deterministic = self.trainer.deterministic
