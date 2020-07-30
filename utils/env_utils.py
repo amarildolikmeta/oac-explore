@@ -126,9 +126,9 @@ class NormalizedBoxEnv(ProxyEnv):
 
 def domain_to_env(name):
     try:
-        # from gym.envs.mujoco import HalfCheetahEnv, \
-        #     InvertedPendulumEnv, HumanoidEnv, \
-        #     HopperEnv, AntEnv, Walker2dEnv
+        from gym.envs.mujoco import HalfCheetahEnv, \
+            InvertedPendulumEnv, HumanoidEnv, \
+            HopperEnv, AntEnv, Walker2dEnv
         from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole
         from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv as MountainCar
         #from gym.envs.box2d.bipedal_walker import BipedalWalker
@@ -138,12 +138,12 @@ def domain_to_env(name):
         from envs.cliff_continuous_mono import CliffWorldContinuousMono
         from envs.cliff_continuous import CliffWorldContinuous
         return {
-            # 'invertedpendulum': InvertedPendulumEnv,
-            # 'humanoid': HumanoidEnv,
-            # 'halfcheetah': HalfCheetahEnv,
-            # 'hopper': HopperEnv,
-            # 'ant': AntEnv,
-            # 'walker2d': Walker2dEnv,
+            'invertedpendulum': InvertedPendulumEnv,
+            'humanoid': HumanoidEnv,
+            'halfcheetah': HalfCheetahEnv,
+            'hopper': HopperEnv,
+            'ant': AntEnv,
+            'walker2d': Walker2dEnv,
             'cartpole': Cartpole,
             'mountain': MountainCar,
             'riverswim': RiverSwimContinuous,
